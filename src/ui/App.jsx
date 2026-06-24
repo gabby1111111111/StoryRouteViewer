@@ -232,17 +232,37 @@ function StatsPanel({ corpus }) {
 }
 
 function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigate }) {
+  const [query, setQuery] = useState('');
+  const filteredRoutes = useMemo(() => filterRoutes(routes, query), [routes, query]);
+
   return (
     <aside className="story-route-viewer-route-list">
       <div className="story-route-viewer-route-list-head">
         <h3>Routes</h3>
-        <span>{routes.length}</span>
+        <span>{query.trim() ? `${filteredRoutes.length}/${routes.length}` : routes.length}</span>
+      </div>
+      <div className="story-route-viewer-route-search">
+        <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+        <input
+          type="search"
+          value={query}
+          placeholder="Filter routes"
+          aria-label="Filter routes"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        {query && (
+          <button type="button" title="Clear route filter" onClick={() => setQuery('')}>
+            <i className="fa-solid fa-xmark" aria-hidden="true" />
+          </button>
+        )}
       </div>
       {routes.length === 0 ? (
         <p className="story-route-viewer-route-list-empty">No Branch routes yet.</p>
+      ) : filteredRoutes.length === 0 ? (
+        <p className="story-route-viewer-route-list-empty">No matching routes.</p>
       ) : (
         <div className="story-route-viewer-route-list-items">
-          {routes.map((route) => (
+          {filteredRoutes.map((route) => (
             <div
               className={`story-route-viewer-route-list-item${route.key === selectedRouteKey ? ' is-selected' : ''}`}
               key={route.key}
@@ -509,6 +529,19 @@ function getRouteItems(graph) {
       seen.add(route.key);
       return true;
     });
+}
+
+function filterRoutes(routes, query) {
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  if (!normalizedQuery) return routes;
+
+  return routes.filter((route) => [
+    route.routeLabel,
+    route.fileName,
+    route.nextPreview,
+    route.chatEnd,
+    String(route.messageCount ?? ''),
+  ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)));
 }
 
 function formatNavigationSuccess(result) {
