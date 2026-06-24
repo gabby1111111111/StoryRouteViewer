@@ -39,21 +39,24 @@ assert.equal(sharedSegment.data.messageCount, 2, 'shared SegmentNode should cont
 const branch = branches[0];
 assert.ok(edges.has(`root->${sharedSegment.id}`), 'root should connect to shared SegmentNode');
 assert.ok(edges.has(`${sharedSegment.id}->${branch.id}`), 'shared SegmentNode should connect to BranchNode');
-assert.equal(branch.data.subtitle, '这里分出 3 条线', 'BranchNode should show route count in the node');
+assert.equal(branch.data.subtitle, '3 route options', 'BranchNode should show route option count in the node');
 assert.equal(branch.data.sharedPrefixRange, '0 - 1', 'BranchNode should expose shared prefix range');
 assert.equal(branch.data.routeCount, 3, 'BranchNode should expose branch count');
+assert.equal(branch.data.routeOptionCount, 3, 'BranchNode should expose route option count');
+assert.deepEqual(branch.data.routeOptions.map((route) => route.label), ['R1', 'R2', 'R3'], 'BranchNode should expose readable route labels');
 assert.equal(branch.data.branchRoutes.length, 3, 'BranchNode should expose branch route inspector rows');
 assert.deepEqual(
   branch.data.branchRoutes.map((route) => ({
+    routeLabel: route.routeLabel,
     fileName: route.fileName,
     nextPreview: route.nextPreview,
     messageCount: route.messageCount,
     chatEnd: route.chatEnd,
   })),
   [
-    { fileName: 'A.jsonl', nextPreview: 'a3', messageCount: 4, chatEnd: 'ChatEnd · 4 messages' },
-    { fileName: 'B.jsonl', nextPreview: 'b3', messageCount: 3, chatEnd: 'ChatEnd · 3 messages' },
-    { fileName: 'C.jsonl', nextPreview: 'c3', messageCount: 5, chatEnd: 'ChatEnd · 5 messages' },
+    { routeLabel: 'R1', fileName: 'A.jsonl', nextPreview: 'a3', messageCount: 4, chatEnd: 'ChatEnd · 4 messages' },
+    { routeLabel: 'R2', fileName: 'B.jsonl', nextPreview: 'b3', messageCount: 3, chatEnd: 'ChatEnd · 3 messages' },
+    { routeLabel: 'R3', fileName: 'C.jsonl', nextPreview: 'c3', messageCount: 5, chatEnd: 'ChatEnd · 5 messages' },
   ],
   'BranchNode should expose next preview and final ChatEnd info per route',
 );
@@ -66,9 +69,19 @@ for (const fileName of ['A.jsonl', 'B.jsonl', 'C.jsonl']) {
   const chatEnd = chatEnds.find((node) => node.data.fileName === fileName);
   assert.ok(segment, `${fileName} should have a branch SegmentNode`);
   assert.ok(chatEnd, `${fileName} should have a ChatEndNode`);
+  assert.ok(segment.data.routeLane?.label, `${fileName} SegmentNode should expose its route lane`);
+  assert.ok(chatEnd.data.routeLane?.label, `${fileName} ChatEndNode should expose its route lane`);
   assert.ok(edges.has(`${branch.id}->${segment.id}`), `${fileName} SegmentNode should be connected from BranchNode`);
   assert.ok(edges.has(`${segment.id}->${chatEnd.id}`), `${fileName} ChatEndNode should be connected from its SegmentNode`);
 }
+
+assert.deepEqual(
+  graph.edges
+    .filter((edge) => edge.source === branch.id)
+    .map((edge) => edge.label),
+  ['R1', 'R2', 'R3'],
+  'Branch outgoing edges should be labeled with route lanes',
+);
 
 const emptyChatEnd = chatEnds.find((node) => node.data.fileName === 'D.jsonl');
 assert.ok(emptyChatEnd, 'D should have a ChatEndNode');

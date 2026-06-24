@@ -301,6 +301,13 @@
   background: var(--srv-bg-secondary);
 }
 
+.story-route-viewer-branch-item-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+
 .story-route-viewer-branch-item strong {
   overflow-wrap: anywhere;
   font-size: 12px !important;
@@ -349,6 +356,62 @@
   color: #f5f5f5;
 }
 
+.story-route-viewer-node-lane {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  min-width: 24px;
+  padding: 2px 5px;
+  border: 1px solid rgba(191, 219, 254, 0.55);
+  border-radius: 6px;
+  background: rgba(30, 64, 175, 0.78);
+  color: #eff6ff;
+  font-size: 10px !important;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.story-route-viewer-route-badge {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 8px 9px;
+  border: 1px solid rgba(147, 197, 253, 0.45);
+  border-radius: var(--horae-radius-sm, 6px);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.story-route-viewer-route-badge span,
+.story-route-viewer-route-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  min-height: 22px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(30, 64, 175, 0.86);
+  color: #eff6ff !important;
+  font-size: 11px !important;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.story-route-viewer-route-badge strong {
+  overflow-wrap: anywhere;
+  font-size: 12px !important;
+  line-height: 1.2;
+}
+
+.story-route-viewer-route-badge em {
+  color: var(--srv-muted);
+  font-size: 11px !important;
+  font-style: normal;
+  line-height: 1;
+}
+
 .story-route-viewer-node.root {
   background: rgba(31, 47, 63, 0.96);
 }
@@ -380,6 +443,7 @@
   font-size: 13px !important;
   font-weight: 700;
   line-height: 1.25;
+  padding-right: 34px;
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -408,6 +472,16 @@
 .story-route-viewer-modal .react-flow__edge-path {
   stroke: #8fb7ff;
   stroke-width: 3;
+}
+
+.story-route-viewer-modal .react-flow__edge-textbg {
+  fill: rgba(31, 41, 55, 0.94);
+}
+
+.story-route-viewer-modal .react-flow__edge-text {
+  fill: #dbeafe;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .story-route-viewer-modal .react-flow__arrowhead polyline {

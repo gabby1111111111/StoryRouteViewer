@@ -82,10 +82,10 @@ function createGraphBuilder(root) {
   let segmentCount = 0;
   let branchCount = 0;
 
-  function addRouteTree({ parentId, routes, depth, column, rowStart }) {
+  function addRouteTree({ parentId, routes, depth, column, rowStart, routeLane = null, incomingEdgeLabel = '' }) {
     if (routes.length === 0) return;
     if (routes.length === 1) {
-      addSingleRoute({ parentId, route: routes[0], depth, column, row: rowStart });
+      addSingleRoute({ parentId, route: routes[0], depth, column, row: rowStart, routeLane, incomingEdgeLabel });
       return;
     }
 
@@ -130,6 +130,8 @@ function createGraphBuilder(root) {
         column,
         rowStart,
         rowCenter,
+        routeLane,
+        incomingEdgeLabel,
       });
       return;
     }
@@ -146,10 +148,12 @@ function createGraphBuilder(root) {
       depth: branchDepth,
       column,
       rowStart,
+      routeLane,
+      incomingEdgeLabel,
     });
   }
 
-  function addAcceptedBranch({ parentId, routes, depth, sharedLength, branchDepth, nextGroups, column, rowStart, rowCenter }) {
+  function addAcceptedBranch({ parentId, routes, depth, sharedLength, branchDepth, nextGroups, column, rowStart, rowCenter, routeLane, incomingEdgeLabel }) {
     const sharedSegment = createSegmentNode({
       id: `segment-${segmentCount}`,
       typeLabel: '共同开头',
@@ -162,15 +166,19 @@ function createGraphBuilder(root) {
       endIndex: depth + sharedLength - 1,
       x: getColumnX(column),
       y: rowCenter,
+      routeLane,
     });
     segmentCount += 1;
     nodes.push(sharedSegment);
-    edges.push(createEdge(`${parentId}-to-${sharedSegment.id}`, parentId, sharedSegment.id));
+    edges.push(createEdge(`${parentId}-to-${sharedSegment.id}`, parentId, sharedSegment.id, {
+      label: incomingEdgeLabel,
+    }));
 
     const branch = createBranchNode({
       id: `branch-${branchCount}`,
       routes,
       depth: branchDepth,
+      nextGroups,
       x: getColumnX(column + 1),
       y: rowCenter,
     });
@@ -179,7 +187,8 @@ function createGraphBuilder(root) {
     edges.push(createEdge(`${sharedSegment.id}-to-${branch.id}`, sharedSegment.id, branch.id));
 
     let branchRowStart = rowStart;
-    nextGroups.forEach((group) => {
+    nextGroups.forEach((group, groupIndex) => {
+      const lane = createRouteLane(group, groupIndex, nextGroups.length, branchDepth);
       if (group.key === CHAT_END_KEY) {
         group.routes.forEach((route, index) => {
           addChatEnd({
@@ -187,6 +196,8 @@ function createGraphBuilder(root) {
             route,
             column: column + 2,
             row: branchRowStart + index,
+            routeLane: lane,
+            incomingEdgeLabel: lane.label,
           });
         });
       } else {
@@ -196,6 +207,8 @@ function createGraphBuilder(root) {
           depth: branchDepth,
           column: column + 2,
           rowStart: branchRowStart,
+          routeLane: lane,
+          incomingEdgeLabel: lane.label,
         });
       }
 
@@ -241,9 +254,9 @@ function createGraphBuilder(root) {
     });
   }
 
-  function addSingleRoute({ parentId, route, depth, column, row }) {
+  function addSingleRoute({ parentId, route, depth, column, row, routeLane = null, incomingEdgeLabel = '' }) {
     if (depth >= route.messages.length) {
-      addChatEnd({ parentId, route, column, row });
+      addChatEnd({ parentId, route, column, row, routeLane, incomingEdgeLabel });
       return;
     }
 
@@ -258,30 +271,37 @@ function createGraphBuilder(root) {
       endIndex: route.messages.length - 1,
       x: getColumnX(column),
       y: getRowY(row),
+      routeLane,
     });
     segmentCount += 1;
 
     nodes.push(segment);
-    edges.push(createEdge(`${parentId}-to-${segment.id}`, parentId, segment.id));
+    edges.push(createEdge(`${parentId}-to-${segment.id}`, parentId, segment.id, {
+      label: incomingEdgeLabel,
+    }));
     addChatEnd({
       parentId: segment.id,
       route,
       column: column + 1,
       row,
+      routeLane,
     });
   }
 
-  function addChatEnd({ parentId, route, column, row }) {
+  function addChatEnd({ parentId, route, column, row, routeLane = null, incomingEdgeLabel = '' }) {
     const chatEnd = createChatEndNode({
       index: route.index,
       fileName: route.fileName,
       messages: route.messages,
       x: getColumnX(column),
       y: getRowY(row),
+      routeLane,
     });
 
     nodes.push(chatEnd);
-    edges.push(createEdge(`${parentId}-to-${chatEnd.id}`, parentId, chatEnd.id));
+    edges.push(createEdge(`${parentId}-to-${chatEnd.id}`, parentId, chatEnd.id, {
+      label: incomingEdgeLabel,
+    }));
   }
 
   return {
@@ -577,7 +597,7 @@ function makePrefixSamples(messages, startIndex, length) {
   });
 }
 
-function createSegmentNode({ id, typeLabel, title, detail, fileName, chatFiles, messages, startIndex, endIndex, x, y }) {
+function createSegmentNode({ id, typeLabel, title, detail, fileName, chatFiles, messages, startIndex, endIndex, x, y, routeLane }) {
   const messageCount = Math.max(0, endIndex - startIndex + 1);
   const targetFileName = Array.isArray(chatFiles) && chatFiles.length > 0 ? chatFiles[0] : fileName;
 
@@ -597,6 +617,7 @@ function createSegmentNode({ id, typeLabel, title, detail, fileName, chatFiles, 
       inspectorType: 'segment',
       fileName,
       chatFiles,
+      routeLane,
       startIndex,
       endIndex,
       messageCount,
@@ -611,9 +632,12 @@ function createSegmentNode({ id, typeLabel, title, detail, fileName, chatFiles, 
   };
 }
 
-function createBranchNode({ id, routes, depth, x, y }) {
+function createBranchNode({ id, routes, depth, nextGroups, x, y }) {
   const targetMessageIndex = depth > 0 ? depth - 1 : 0;
   const targetFileName = routes[0]?.fileName || '';
+  const routeOptions = Array.isArray(nextGroups)
+    ? nextGroups.map((group, groupIndex) => createRouteLane(group, groupIndex, nextGroups.length, depth))
+    : [];
   const sharedPrefixLabel = depth > 0 ? `0 - ${depth - 1}` : '无共同前缀';
 
   return {
@@ -626,11 +650,12 @@ function createBranchNode({ id, routes, depth, x, y }) {
     sourcePosition: 'right',
     targetPosition: 'left',
     data: {
-      title: '分叉点',
-      subtitle: `这里分出 ${routes.length} 条线`,
-      detail: `shared ${sharedPrefixLabel}`,
+      title: 'Branch Point',
+      subtitle: `${routeOptions.length || routes.length} route options`,
+      detail: `${routes.length} chats · shared ${sharedPrefixLabel}`,
       inspectorType: 'branch',
       routeCount: routes.length,
+      routeOptionCount: routeOptions.length || routes.length,
       branchIndex: depth,
       sharedPrefixRange: sharedPrefixLabel,
       navigationTarget: createNavigationTarget({
@@ -639,17 +664,25 @@ function createBranchNode({ id, routes, depth, x, y }) {
         fallbackMessageIndex: 0,
       }),
       chatFiles: routes.map((route) => route.fileName),
-      branchRoutes: routes.map((route) => ({
-        fileName: route.fileName,
-        nextPreview: depth < route.messages.length ? makeMessagePreview(route.messages[depth], INSPECTOR_PREVIEW_LENGTH) : 'Chat End',
-        messageCount: route.messages.length,
-        chatEnd: route.messages.length === 0 ? 'Empty ChatEnd' : `ChatEnd · ${route.messages.length} messages`,
-      })),
+      routeOptions,
+      branchRoutes: routeOptions.flatMap((lane) =>
+        lane.fileNames.map((fileName) => {
+          const route = routes.find((item) => item.fileName === fileName);
+          return {
+            routeLabel: lane.label,
+            routeTitle: lane.title,
+            fileName,
+            nextPreview: route && depth < route.messages.length ? makeMessagePreview(route.messages[depth], INSPECTOR_PREVIEW_LENGTH) : 'Chat End',
+            messageCount: route?.messages.length || 0,
+            chatEnd: !route || route.messages.length === 0 ? 'Empty ChatEnd' : `ChatEnd · ${route.messages.length} messages`,
+          };
+        }),
+      ),
     },
   };
 }
 
-function createChatEndNode({ index, fileName, messages, x, y }) {
+function createChatEndNode({ index, fileName, messages, x, y, routeLane }) {
   const messageCount = messages.length;
   const isEmpty = messageCount === 0;
   const lastMessageIndex = isEmpty ? null : messageCount - 1;
@@ -669,6 +702,7 @@ function createChatEndNode({ index, fileName, messages, x, y }) {
       fileName,
       messageCount,
       isEmpty,
+      routeLane,
       inspectorType: 'chatEnd',
       navigationTarget: createNavigationTarget({
         fileName,
@@ -691,13 +725,48 @@ function createNavigationTarget({ fileName, messageIndex, fallbackMessageIndex }
   };
 }
 
-function createEdge(id, source, target) {
+function createRouteLane(group, groupIndex, optionCount, depth) {
+  const label = `R${groupIndex + 1}`;
+  const firstRoute = group.routes[0];
+  const isChatEnd = group.key === CHAT_END_KEY;
+
   return {
+    label,
+    title: `Route ${groupIndex + 1}`,
+    optionIndex: groupIndex + 1,
+    optionCount,
+    routeCount: group.routes.length,
+    fileNames: group.routes.map((route) => route.fileName),
+    nextPreview: isChatEnd || !firstRoute || depth >= firstRoute.messages.length
+      ? 'Chat End'
+      : makeMessagePreview(firstRoute.messages[depth], INSPECTOR_PREVIEW_LENGTH),
+  };
+}
+
+function createEdge(id, source, target, options = {}) {
+  const edge = {
     id,
     source,
     target,
     type: 'straight',
   };
+
+  if (options.label) {
+    edge.label = options.label;
+    edge.labelStyle = {
+      fill: '#dbeafe',
+      fontSize: 11,
+      fontWeight: 700,
+    };
+    edge.labelBgStyle = {
+      fill: '#1f2937',
+      fillOpacity: 0.92,
+    };
+    edge.labelBgPadding = [5, 3];
+    edge.labelBgBorderRadius = 5;
+  }
+
+  return edge;
 }
 
 function makeSegmentTitle(messages, startIndex, endIndex) {

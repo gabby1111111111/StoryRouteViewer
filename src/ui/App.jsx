@@ -198,6 +198,7 @@ function RouteNode({ data, type }) {
       {type !== 'root' && (
         <Handle className="story-route-viewer-handle" type="target" position={Position.Left} />
       )}
+      {data.routeLane && <div className="story-route-viewer-node-lane">{data.routeLane.label}</div>}
       <div className="story-route-viewer-node-title">{data.title}</div>
       <div className="story-route-viewer-node-subtitle">{data.subtitle}</div>
       <div className="story-route-viewer-node-detail">{data.detail}</div>
@@ -222,6 +223,7 @@ function Inspector({ node, navigationError, isNavigating, onNavigate }) {
     return (
       <aside className="story-route-viewer-inspector">
         <h3>{node.data.title || '剧情段'}</h3>
+        {node.data.routeLane && <InspectorRouteBadge routeLane={node.data.routeLane} />}
         <InspectorRow label="File" value={node.data.fileName} />
         {node.data.chatFiles?.length > 0 && <InspectorPreview label="Chats" value={node.data.chatFiles.join('\n')} />}
         <InspectorRow label="Range" value={`${node.data.startIndex} - ${node.data.endIndex}`} />
@@ -242,6 +244,7 @@ function Inspector({ node, navigationError, isNavigating, onNavigate }) {
     return (
       <aside className="story-route-viewer-inspector">
         <h3>{node.data.isEmpty ? 'Empty Chat' : 'Chat End'}</h3>
+        {node.data.routeLane && <InspectorRouteBadge routeLane={node.data.routeLane} />}
         <InspectorRow label="File" value={node.data.fileName} />
         <InspectorRow label="Messages" value={node.data.messageCount} />
         {node.data.isEmpty ? (
@@ -266,7 +269,9 @@ function Inspector({ node, navigationError, isNavigating, onNavigate }) {
     return (
       <aside className="story-route-viewer-inspector">
         <h3>{node.data.title || '分叉点'}</h3>
-        <div className="story-route-viewer-inspector-alert">这里分出 {node.data.routeCount} 条线</div>
+        <div className="story-route-viewer-inspector-alert">
+          {node.data.routeOptionCount || node.data.routeCount} route options · {node.data.routeCount} chats
+        </div>
         <InspectorRow label="Shared prefix" value={node.data.sharedPrefixRange || '无共同前缀'} />
         <InspectorRow label="Branch after" value={`${node.data.branchIndex} messages`} />
         <InspectorRow label="Branches" value={node.data.routeCount} />
@@ -278,7 +283,10 @@ function Inspector({ node, navigationError, isNavigating, onNavigate }) {
         <div className="story-route-viewer-branch-list">
           {(node.data.branchRoutes || []).map((route) => (
             <div className="story-route-viewer-branch-item" key={route.fileName}>
-              <strong>{route.fileName}</strong>
+              <div className="story-route-viewer-branch-item-head">
+                <span className="story-route-viewer-route-chip">{route.routeLabel || 'R?'}</span>
+                <strong>{route.fileName}</strong>
+              </div>
               <span>{route.chatEnd}</span>
               <p>{route.nextPreview || '-'}</p>
             </div>
@@ -303,6 +311,16 @@ function InspectorAction({ label, disabled, onClick }) {
     <button className="menu_button story-route-viewer-inspector-action" type="button" disabled={disabled} onClick={onClick}>
       {label}
     </button>
+  );
+}
+
+function InspectorRouteBadge({ routeLane }) {
+  return (
+    <div className="story-route-viewer-route-badge">
+      <span>{routeLane.label}</span>
+      <strong>{routeLane.title}</strong>
+      <em>{routeLane.routeCount} chat{routeLane.routeCount === 1 ? '' : 's'}</em>
+    </div>
   );
 }
 
