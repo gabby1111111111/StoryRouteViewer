@@ -284,10 +284,17 @@ function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigat
   const filteredRoutes = useMemo(() => filterRoutes(routes, query, routeKind), [routes, query, routeKind]);
   const visibleRoutes = useMemo(() => sortRoutes(filteredRoutes, sortMode, sortDirection), [filteredRoutes, sortMode, sortDirection]);
   const hasActiveFilter = query.trim() || routeKind !== 'all';
+  const hasRouteListChanges = hasActiveFilter || sortMode !== 'original' || sortDirection !== 'asc';
   const handleSortModeChange = (event) => {
     const nextSortMode = event.target.value;
     setSortMode(nextSortMode);
     setSortDirection(nextSortMode === 'messages' ? 'desc' : 'asc');
+  };
+  const resetRouteList = () => {
+    setQuery('');
+    setRouteKind('all');
+    setSortMode('original');
+    setSortDirection('asc');
   };
 
   return (
@@ -341,6 +348,14 @@ function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigat
           <i className={`fa-solid ${sortDirection === 'asc' ? 'fa-arrow-down-a-z' : 'fa-arrow-down-z-a'}`} aria-hidden="true" />
         </button>
       </label>
+      <button
+        className="story-route-viewer-route-reset"
+        type="button"
+        disabled={!hasRouteListChanges}
+        onClick={resetRouteList}
+      >
+        Reset route list
+      </button>
       {routes.length === 0 ? (
         <p className="story-route-viewer-route-list-empty">No routes yet.</p>
       ) : visibleRoutes.length === 0 ? (
