@@ -253,7 +253,7 @@ function createGraphBuilder(root) {
       status,
       reason,
       source: branchSource,
-      stBranchPoint: makeDebugBranchPoint(branchMeta),
+      stBranchPoint: makeDebugBranchPoint(branchMeta, routes, depth + sharedLength),
       fileNames: routes.map((route) => route.fileName),
       fileCount: routes.length,
       sharedPrefixRange: `${depth} - ${depth + sharedLength - 1}`,
@@ -556,6 +556,7 @@ function selectMetadataBranchPoint(parentLinks) {
     const key = `${link.parentFileName}::${link.messageIndex}`;
     if (!groups.has(key)) {
       groups.set(key, {
+        source: 'extra.branches',
         parentChatName: link.parentChatName,
         parentFileName: link.parentFileName,
         messageIndex: link.messageIndex,
@@ -574,10 +575,49 @@ function selectMetadataBranchPoint(parentLinks) {
   })[0];
 }
 
-function makeDebugBranchPoint(branchMeta) {
-  const point = branchMeta?.branchPoint;
+function makeDebugBranchPoint(branchMeta, routes, branchDepth) {
+  const point = resolveMetadataBranchPoint(branchMeta, routes, branchDepth);
   if (!point) return '';
   return `${point.parentFileName} #${point.messageIndex}`;
+}
+
+function resolveMetadataBranchPoint(branchMeta, routes, branchDepth) {
+  if (branchMeta?.branchPoint) return branchMeta.branchPoint;
+
+  const point = inferMainChatBranchPoint(branchMeta, routes, branchDepth);
+  if (point) return point;
+
+  return null;
+}
+
+function inferMainChatBranchPoint(branchMeta, routes, branchDepth) {
+  const links = Array.isArray(branchMeta?.mainChatLinks) ? branchMeta.mainChatLinks : [];
+  if (links.length === 0 || !Array.isArray(routes) || routes.length === 0) return null;
+
+  const routeByFileName = new Map(routes.map((route) => [route.fileName, route]));
+  const linkedParentFileNames = Array.from(new Set(
+    links.map((link) => link.parentFileName).filter((fileName) => fileName && routeByFileName.has(fileName)),
+  ));
+  if (linkedParentFileNames.length === 0) return null;
+
+  const parentRoute = linkedParentFileNames
+    .map((fileName) => routeByFileName.get(fileName))
+    .sort((a, b) => a.index - b.index)[0];
+  const messageIndex = Math.max(0, Math.min(branchDepth - 1, parentRoute.messages.length - 1));
+  const children = links
+    .filter((link) => link.parentFileName === parentRoute.fileName)
+    .map((link) => ({
+      chatName: link.childChatName,
+      fileName: link.childFileName,
+    }));
+
+  return {
+    source: 'main_chat_inferred',
+    parentChatName: parentRoute.chatName,
+    parentFileName: parentRoute.fileName,
+    messageIndex,
+    children,
+  };
 }
 
 function groupRoutesByNextMessage(routes, depth) {
@@ -742,7 +782,7 @@ function createSegmentNode({ id, typeLabel, title, detail, fileName, chatFiles, 
 }
 
 function createBranchNode({ id, routes, depth, nextGroups, branchSource = 'text_prefix', branchMeta = null, x, y }) {
-  const metadataBranchPoint = branchMeta?.branchPoint || null;
+  const metadataBranchPoint = resolveMetadataBranchPoint(branchMeta, routes, depth);
   const targetMessageIndex = metadataBranchPoint?.messageIndex ?? (depth > 0 ? depth - 1 : 0);
   const targetFileName = metadataBranchPoint?.parentFileName || routes[0]?.fileName || '';
   const routeOptions = Array.isArray(nextGroups)
@@ -771,6 +811,7 @@ function createBranchNode({ id, routes, depth, nextGroups, branchSource = 'text_
         : '',
       stBranchParentFileName: metadataBranchPoint?.parentFileName || '',
       stBranchParentMessageIndex: metadataBranchPoint?.messageIndex ?? null,
+      stBranchPointSource: metadataBranchPoint?.source || '',
       stBranchChildren: metadataBranchPoint?.children?.map((child) => child.fileName) || [],
       stMainChatLinks: branchMeta?.mainChatLinks || [],
       routeCount: routes.length,

@@ -173,8 +173,16 @@ assert.equal(metadataParentBranches.length, 1, 'ST main_chat parent chain should
 assert.equal(metadataParentBranches[0].data.routeCount, 3, 'ST main_chat parent chain should keep parent + children in one route group');
 assert.equal(metadataParentBranches[0].data.branchSource, 'st_metadata', 'ST metadata branch should expose st_metadata source');
 assert.equal(metadataParentBranches[0].data.branchSourceLabel, 'ST metadata', 'ST metadata branch should expose readable source label');
+assert.equal(metadataParentBranches[0].data.stBranchPoint, 'Parent Route.jsonl #1', 'ST main_chat branch should infer parent message index from shared prefix');
+assert.equal(metadataParentBranches[0].data.stBranchPointSource, 'main_chat_inferred', 'ST main_chat inferred branch should expose inferred source');
+assert.deepEqual(
+  metadataParentBranches[0].data.navigationTarget,
+  { chatId: 'Parent Route', fileName: 'Parent Route.jsonl', messageIndex: 1, fallbackMessageIndex: 0 },
+  'ST main_chat inferred branch jump should target inferred parent chat message',
+);
 assert.equal(metadataParentGraph.debug.acceptedBranchCount, 1, 'ST main_chat parent chain should accept the shared branch prefix');
 assert.equal(metadataParentGraph.debug.candidates[0].source, 'st_metadata', 'ST metadata candidate debug should expose source');
+assert.equal(metadataParentGraph.debug.candidates[0].stBranchPoint, 'Parent Route.jsonl #1', 'ST metadata candidate debug should expose inferred parent message index');
 assert.deepEqual(
   metadataParentGraph.debug.candidates[0].fileNames,
   ['Parent Route.jsonl', 'Child Alpha.jsonl', 'Child Beta.jsonl'],
@@ -186,6 +194,7 @@ const metadataBranchLinksBranches = metadataBranchLinksGraph.nodes.filter((node)
 assert.equal(metadataBranchLinksBranches.length, 1, 'ST extra.branches links should create one BranchNode');
 assert.equal(metadataBranchLinksBranches[0].data.branchSource, 'st_metadata', 'ST extra.branches branch should expose st_metadata source');
 assert.equal(metadataBranchLinksBranches[0].data.stBranchPoint, 'Linked Parent.jsonl #1', 'ST extra.branches branch should expose parent message index');
+assert.equal(metadataBranchLinksBranches[0].data.stBranchPointSource, 'extra.branches', 'ST extra.branches branch should expose explicit source');
 assert.deepEqual(
   metadataBranchLinksBranches[0].data.stBranchChildren,
   ['Linked Alpha.jsonl', 'Linked Beta.jsonl'],
@@ -208,6 +217,7 @@ assert.equal(metadataMissingParentBranches.length, 1, 'ST main_chat siblings sho
 assert.equal(metadataMissingParentBranches[0].data.routeCount, 2, 'ST main_chat missing-parent siblings should keep both child chats in one route group');
 assert.equal(metadataMissingParentBranches[0].data.routeOptionCount, 2, 'two child chats under the same missing parent should become two route options');
 assert.equal(metadataMissingParentGraph.debug.acceptedBranchCount, 1, 'ST main_chat missing-parent siblings should accept the shared branch prefix');
+assert.equal(metadataMissingParentBranches[0].data.stBranchPoint, '', 'ST main_chat missing-parent branch should not infer a missing parent jump target');
 assert.deepEqual(
   metadataMissingParentGraph.debug.candidates[0].fileNames,
   ['Child Only Alpha.jsonl', 'Child Only Beta.jsonl'],

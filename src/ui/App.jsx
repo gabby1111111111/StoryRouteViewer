@@ -505,6 +505,7 @@ function Inspector({ node, selectedRoute, navigationError, navigationNotice, isN
         </div>
         <InspectorRow label="Source" value={node.data.branchSourceLabel || node.data.branchSource || 'Text prefix'} />
         {node.data.stBranchPoint && <InspectorRow label="ST branch point" value={node.data.stBranchPoint} />}
+        {node.data.stBranchPointSource && <InspectorRow label="ST point source" value={node.data.stBranchPointSource} />}
         {node.data.stBranchChildren?.length > 0 && (
           <InspectorRow label="ST children" value={node.data.stBranchChildren.join(' | ')} />
         )}
