@@ -16,6 +16,13 @@ const defaultEdgeOptions = {
   markerEnd: { type: MarkerType.ArrowClosed, color: '#8fb7ff' },
 };
 
+const routeFilters = [
+  { key: 'all', label: 'All' },
+  { key: 'branch', label: 'Branch' },
+  { key: 'independent', label: 'Chat' },
+  { key: 'empty', label: 'Empty' },
+];
+
 export function App({ status, corpus, graph, error, onClose, onRefresh }) {
   const flowShellRef = useRef(null);
   const flowInstanceRef = useRef(null);
@@ -264,13 +271,16 @@ function StatsPanel({ corpus, graphStats }) {
 
 function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigate }) {
   const [query, setQuery] = useState('');
-  const filteredRoutes = useMemo(() => filterRoutes(routes, query), [routes, query]);
+  const [routeKind, setRouteKind] = useState('all');
+  const routeKindCounts = useMemo(() => getRouteKindCounts(routes), [routes]);
+  const filteredRoutes = useMemo(() => filterRoutes(routes, query, routeKind), [routes, query, routeKind]);
+  const hasActiveFilter = query.trim() || routeKind !== 'all';
 
   return (
     <aside className="story-route-viewer-route-list">
       <div className="story-route-viewer-route-list-head">
         <h3>Routes</h3>
-        <span>{query.trim() ? `${filteredRoutes.length}/${routes.length}` : routes.length}</span>
+        <span>{hasActiveFilter ? `${filteredRoutes.length}/${routes.length}` : routes.length}</span>
       </div>
       <div className="story-route-viewer-route-search">
         <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
@@ -286,6 +296,19 @@ function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigat
             <i className="fa-solid fa-xmark" aria-hidden="true" />
           </button>
         )}
+      </div>
+      <div className="story-route-viewer-route-filters" aria-label="Route type filter">
+        {routeFilters.map((filter) => (
+          <button
+            type="button"
+            className={routeKind === filter.key ? 'is-active' : ''}
+            key={filter.key}
+            onClick={() => setRouteKind(filter.key)}
+          >
+            <span>{filter.label}</span>
+            <strong>{routeKindCounts[filter.key] || 0}</strong>
+          </button>
+        ))}
       </div>
       {routes.length === 0 ? (
         <p className="story-route-viewer-route-list-empty">No routes yet.</p>
@@ -632,17 +655,33 @@ function getRouteItems(graph) {
     });
 }
 
-function filterRoutes(routes, query) {
-  const normalizedQuery = String(query || '').trim().toLowerCase();
-  if (!normalizedQuery) return routes;
+function getRouteKindCounts(routes) {
+  return routes.reduce(
+    (counts, route) => {
+      const kind = route.routeKind || 'independent';
+      counts.all += 1;
+      counts[kind] = (counts[kind] || 0) + 1;
+      return counts;
+    },
+    { all: 0, branch: 0, independent: 0, empty: 0 },
+  );
+}
 
-  return routes.filter((route) => [
-    route.routeLabel,
-    route.fileName,
-    route.nextPreview,
-    route.chatEnd,
-    String(route.messageCount ?? ''),
-  ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)));
+function filterRoutes(routes, query, routeKind = 'all') {
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  return routes.filter((route) => {
+    if (routeKind !== 'all' && route.routeKind !== routeKind) return false;
+    if (!normalizedQuery) return true;
+
+    return [
+      route.routeLabel,
+      route.routeKind,
+      route.fileName,
+      route.nextPreview,
+      route.chatEnd,
+      String(route.messageCount ?? ''),
+    ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery));
+  });
 }
 
 function getGraphStats(graph, routeItems) {
