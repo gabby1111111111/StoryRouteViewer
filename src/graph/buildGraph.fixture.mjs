@@ -171,6 +171,36 @@ export const metadataParentFixtureCorpus = {
   ],
 };
 
+export const metadataBranchLinksFixtureCorpus = {
+  scope: 'character',
+  title: 'Metadata Branch Links Fixture',
+  chatCount: 3,
+  totalMessages: 10,
+  emptyChats: [],
+  chats: [
+    {
+      fileName: 'Linked Parent.jsonl',
+      branchLinks: [
+        { messageIndex: 1, chatName: 'Linked Alpha' },
+        { messageIndex: 1, chatName: 'Linked Beta' },
+      ],
+      messages: [message(m1), branchMessage(m2, ['Linked Alpha', 'Linked Beta']), message('parent route continues')],
+    },
+    {
+      fileName: 'Linked Alpha.jsonl',
+      mainChat: 'Linked Parent',
+      metadata: { main_chat: 'Linked Parent' },
+      messages: [message(m1), message(m2), message('alpha branch continues')],
+    },
+    {
+      fileName: 'Linked Beta.jsonl',
+      mainChat: 'Linked Parent',
+      metadata: { main_chat: 'Linked Parent' },
+      messages: [message(m1), message(m2), message('beta branch continues')],
+    },
+  ],
+};
+
 export const metadataMissingParentFixtureCorpus = {
   scope: 'character',
   title: 'Metadata Missing Parent Fixture',
@@ -198,6 +228,15 @@ function message(mes) {
     name: 'user',
     is_user: true,
     mes,
+  };
+}
+
+function branchMessage(mes, branches) {
+  return {
+    name: 'user',
+    is_user: true,
+    mes,
+    extra: { branches },
   };
 }
 

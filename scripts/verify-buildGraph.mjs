@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { buildGraph } from '../src/graph/buildGraph.js';
 import {
   branchFamilyLoosePrefixFixtureCorpus,
+  metadataBranchLinksFixtureCorpus,
   metadataMissingParentFixtureCorpus,
   metadataParentFixtureCorpus,
   metadataOnlyPrefixFixtureCorpus,
@@ -178,6 +179,27 @@ assert.deepEqual(
   metadataParentGraph.debug.candidates[0].fileNames,
   ['Parent Route.jsonl', 'Child Alpha.jsonl', 'Child Beta.jsonl'],
   'ST main_chat parent chain should expose grouped file names',
+);
+
+const metadataBranchLinksGraph = buildGraph(metadataBranchLinksFixtureCorpus);
+const metadataBranchLinksBranches = metadataBranchLinksGraph.nodes.filter((node) => node.type === 'branch');
+assert.equal(metadataBranchLinksBranches.length, 1, 'ST extra.branches links should create one BranchNode');
+assert.equal(metadataBranchLinksBranches[0].data.branchSource, 'st_metadata', 'ST extra.branches branch should expose st_metadata source');
+assert.equal(metadataBranchLinksBranches[0].data.stBranchPoint, 'Linked Parent.jsonl #1', 'ST extra.branches branch should expose parent message index');
+assert.deepEqual(
+  metadataBranchLinksBranches[0].data.stBranchChildren,
+  ['Linked Alpha.jsonl', 'Linked Beta.jsonl'],
+  'ST extra.branches branch should expose linked child chats',
+);
+assert.deepEqual(
+  metadataBranchLinksBranches[0].data.navigationTarget,
+  { chatId: 'Linked Parent', fileName: 'Linked Parent.jsonl', messageIndex: 1, fallbackMessageIndex: 0 },
+  'ST extra.branches branch jump should target the parent chat message',
+);
+assert.equal(
+  metadataBranchLinksGraph.debug.candidates[0].stBranchPoint,
+  'Linked Parent.jsonl #1',
+  'ST extra.branches candidate debug should expose parent message index',
 );
 
 const metadataMissingParentGraph = buildGraph(metadataMissingParentFixtureCorpus);
