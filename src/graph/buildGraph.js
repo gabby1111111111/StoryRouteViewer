@@ -418,6 +418,7 @@ function getMetadataBranchGroups(routes) {
   const routeByName = new Map(nonEmptyRoutes.map((route) => [route.chatName, route]));
   const parent = new Map(nonEmptyRoutes.map((route) => [route.index, route.index]));
   const hasMetadataLink = new Set();
+  const routesByMainChatName = new Map();
 
   function find(index) {
     const value = parent.get(index);
@@ -434,11 +435,18 @@ function getMetadataBranchGroups(routes) {
   }
 
   nonEmptyRoutes.forEach((route) => {
-    if (route.mainChatName && routeByName.has(route.mainChatName)) {
-      const parentRoute = routeByName.get(route.mainChatName);
-      union(parentRoute.index, route.index);
-      hasMetadataLink.add(parentRoute.index);
-      hasMetadataLink.add(route.index);
+    if (route.mainChatName) {
+      if (!routesByMainChatName.has(route.mainChatName)) {
+        routesByMainChatName.set(route.mainChatName, []);
+      }
+      routesByMainChatName.get(route.mainChatName).push(route);
+
+      if (routeByName.has(route.mainChatName)) {
+        const parentRoute = routeByName.get(route.mainChatName);
+        union(parentRoute.index, route.index);
+        hasMetadataLink.add(parentRoute.index);
+        hasMetadataLink.add(route.index);
+      }
     }
 
     route.branchLinks.forEach((link) => {
@@ -449,6 +457,16 @@ function getMetadataBranchGroups(routes) {
       hasMetadataLink.add(route.index);
       hasMetadataLink.add(childRoute.index);
     });
+  });
+
+  routesByMainChatName.forEach((linkedRoutes) => {
+    if (linkedRoutes.length < 2) return;
+
+    const firstRoute = linkedRoutes[0];
+    linkedRoutes.slice(1).forEach((route) => {
+      union(firstRoute.index, route.index);
+    });
+    linkedRoutes.forEach((route) => hasMetadataLink.add(route.index));
   });
 
   const groups = new Map();

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { buildGraph } from '../src/graph/buildGraph.js';
 import {
   branchFamilyLoosePrefixFixtureCorpus,
+  metadataMissingParentFixtureCorpus,
   metadataParentFixtureCorpus,
   metadataOnlyPrefixFixtureCorpus,
   namedSystemFlagPrefixFixtureCorpus,
@@ -169,6 +170,18 @@ assert.deepEqual(
   metadataParentGraph.debug.candidates[0].fileNames,
   ['Parent Route.jsonl', 'Child Alpha.jsonl', 'Child Beta.jsonl'],
   'ST main_chat parent chain should expose grouped file names',
+);
+
+const metadataMissingParentGraph = buildGraph(metadataMissingParentFixtureCorpus);
+const metadataMissingParentBranches = metadataMissingParentGraph.nodes.filter((node) => node.type === 'branch');
+assert.equal(metadataMissingParentBranches.length, 1, 'ST main_chat siblings should create one BranchNode even when the parent chat file is missing');
+assert.equal(metadataMissingParentBranches[0].data.routeCount, 2, 'ST main_chat missing-parent siblings should keep both child chats in one route group');
+assert.equal(metadataMissingParentBranches[0].data.routeOptionCount, 2, 'two child chats under the same missing parent should become two route options');
+assert.equal(metadataMissingParentGraph.debug.acceptedBranchCount, 1, 'ST main_chat missing-parent siblings should accept the shared branch prefix');
+assert.deepEqual(
+  metadataMissingParentGraph.debug.candidates[0].fileNames,
+  ['Child Only Alpha.jsonl', 'Child Only Beta.jsonl'],
+  'ST main_chat missing-parent grouping should expose sibling child file names',
 );
 
 console.log('buildGraph fixture ok');

@@ -171,6 +171,28 @@ export const metadataParentFixtureCorpus = {
   ],
 };
 
+export const metadataMissingParentFixtureCorpus = {
+  scope: 'character',
+  title: 'Metadata Missing Parent Fixture',
+  chatCount: 2,
+  totalMessages: 6,
+  emptyChats: [],
+  chats: [
+    {
+      fileName: 'Child Only Alpha.jsonl',
+      mainChat: 'Missing Parent Route',
+      metadata: { main_chat: 'Missing Parent Route' },
+      messages: [message(m1), message(m2), message('alpha branch continues')],
+    },
+    {
+      fileName: 'Child Only Beta.jsonl',
+      mainChat: 'Missing Parent Route',
+      metadata: { main_chat: 'Missing Parent Route' },
+      messages: [message(m1), message(m2), message('beta branch continues')],
+    },
+  ],
+};
+
 function message(mes) {
   return {
     name: 'user',
