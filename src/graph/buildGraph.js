@@ -58,6 +58,7 @@ export function buildGraph(corpus) {
         depth: 0,
         column: 1,
         rowStart: rowIndex,
+        branchSource: group.source || 'text_prefix',
       });
       rowIndex += group.routes.length;
     });
@@ -82,7 +83,7 @@ function createGraphBuilder(root) {
   let segmentCount = 0;
   let branchCount = 0;
 
-  function addRouteTree({ parentId, routes, depth, column, rowStart, routeLane = null, incomingEdgeLabel = '' }) {
+  function addRouteTree({ parentId, routes, depth, column, rowStart, routeLane = null, incomingEdgeLabel = '', branchSource = 'text_prefix' }) {
     if (routes.length === 0) return;
     if (routes.length === 1) {
       addSingleRoute({ parentId, route: routes[0], depth, column, row: rowStart, routeLane, incomingEdgeLabel });
@@ -106,6 +107,7 @@ function createGraphBuilder(root) {
           depth,
           sharedLength,
           validation,
+          branchSource,
         });
         addIndependentRoutes({ parentId, routes, depth, column, rowStart });
         return;
@@ -119,6 +121,7 @@ function createGraphBuilder(root) {
         depth,
         sharedLength,
         validation,
+        branchSource,
       });
       addAcceptedBranch({
         parentId,
@@ -132,6 +135,7 @@ function createGraphBuilder(root) {
         rowCenter,
         routeLane,
         incomingEdgeLabel,
+        branchSource,
       });
       return;
     }
@@ -150,10 +154,11 @@ function createGraphBuilder(root) {
       rowStart,
       routeLane,
       incomingEdgeLabel,
+      branchSource,
     });
   }
 
-  function addAcceptedBranch({ parentId, routes, depth, sharedLength, branchDepth, nextGroups, column, rowStart, rowCenter, routeLane, incomingEdgeLabel }) {
+  function addAcceptedBranch({ parentId, routes, depth, sharedLength, branchDepth, nextGroups, column, rowStart, rowCenter, routeLane, incomingEdgeLabel, branchSource }) {
     const sharedSegment = createSegmentNode({
       id: `segment-${segmentCount}`,
       typeLabel: '共同开头',
@@ -179,6 +184,7 @@ function createGraphBuilder(root) {
       routes,
       depth: branchDepth,
       nextGroups,
+      branchSource,
       x: getColumnX(column + 1),
       y: rowCenter,
     });
@@ -209,6 +215,7 @@ function createGraphBuilder(root) {
           rowStart: branchRowStart,
           routeLane: lane,
           incomingEdgeLabel: lane.label,
+          branchSource,
         });
       }
 
@@ -233,11 +240,12 @@ function createGraphBuilder(root) {
     debug.rejectedReasons[reason] = (debug.rejectedReasons[reason] || 0) + 1;
   }
 
-  function recordCandidate({ status, reason, routes, depth, sharedLength, validation }) {
+  function recordCandidate({ status, reason, routes, depth, sharedLength, validation, branchSource = 'text_prefix' }) {
     debug.candidates.push({
       id: `candidate-${debug.candidates.length + 1}`,
       status,
       reason,
+      source: branchSource,
       fileNames: routes.map((route) => route.fileName),
       fileCount: routes.length,
       sharedPrefixRange: `${depth} - ${depth + sharedLength - 1}`,
@@ -315,6 +323,7 @@ function createGraphBuilder(root) {
           id: candidate.id,
           status: candidate.status,
           reason: candidate.reason || 'accepted',
+          source: candidate.source,
           files: candidate.fileNames.join(' | '),
           prefixRange: candidate.sharedPrefixRange,
           prefixMessages: candidate.sharedPrefixMessages,
@@ -650,7 +659,7 @@ function createSegmentNode({ id, typeLabel, title, detail, fileName, chatFiles, 
   };
 }
 
-function createBranchNode({ id, routes, depth, nextGroups, x, y }) {
+function createBranchNode({ id, routes, depth, nextGroups, branchSource = 'text_prefix', x, y }) {
   const targetMessageIndex = depth > 0 ? depth - 1 : 0;
   const targetFileName = routes[0]?.fileName || '';
   const routeOptions = Array.isArray(nextGroups)
@@ -672,6 +681,8 @@ function createBranchNode({ id, routes, depth, nextGroups, x, y }) {
       subtitle: `${routeOptions.length || routes.length} route options`,
       detail: `${routes.length} chats · shared ${sharedPrefixLabel}`,
       inspectorType: 'branch',
+      branchSource,
+      branchSourceLabel: getBranchSourceLabel(branchSource),
       routeCount: routes.length,
       routeOptionCount: routeOptions.length || routes.length,
       branchIndex: depth,
@@ -834,6 +845,13 @@ function getRowY(row) {
 
 function getRowCenter(rowStart, rowCount) {
   return getRowY(rowStart) + ((rowCount - 1) * ROW_HEIGHT) / 2;
+}
+
+function getBranchSourceLabel(source) {
+  if (source === 'st_metadata') return 'ST metadata';
+  if (source === 'filename_family') return 'Filename family';
+  if (source === 'exact_prefix') return 'Text prefix';
+  return 'Text prefix';
 }
 
 function normalizeMessageText(message) {

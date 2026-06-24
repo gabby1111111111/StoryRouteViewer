@@ -503,6 +503,7 @@ function Inspector({ node, selectedRoute, navigationError, navigationNotice, isN
         <div className="story-route-viewer-inspector-alert">
           {node.data.routeOptionCount || node.data.routeCount} route options · {node.data.routeCount} chats
         </div>
+        <InspectorRow label="Source" value={node.data.branchSourceLabel || node.data.branchSource || 'Text prefix'} />
         <InspectorRow label="Shared prefix" value={node.data.sharedPrefixRange || '无共同前缀'} />
         <InspectorRow label="Branch after" value={`${node.data.branchIndex} messages`} />
         <InspectorRow label="Branches" value={node.data.routeCount} />

@@ -42,6 +42,8 @@ assert.ok(edges.has(`root->${sharedSegment.id}`), 'root should connect to shared
 assert.ok(edges.has(`${sharedSegment.id}->${branch.id}`), 'shared SegmentNode should connect to BranchNode');
 assert.equal(branch.data.subtitle, '3 route options', 'BranchNode should show route option count in the node');
 assert.equal(branch.data.sharedPrefixRange, '0 - 1', 'BranchNode should expose shared prefix range');
+assert.equal(branch.data.branchSource, 'exact_prefix', 'BranchNode should expose text-prefix source');
+assert.equal(branch.data.branchSourceLabel, 'Text prefix', 'BranchNode should expose readable text-prefix source');
 assert.equal(branch.data.routeCount, 3, 'BranchNode should expose branch count');
 assert.equal(branch.data.routeOptionCount, 3, 'BranchNode should expose route option count');
 assert.deepEqual(branch.data.routeOptions.map((route) => route.label), ['R1', 'R2', 'R3'], 'BranchNode should expose readable route labels');
@@ -154,7 +156,10 @@ const branchFamilyLooseGraph = buildGraph(branchFamilyLoosePrefixFixtureCorpus);
 const branchFamilyLooseBranches = branchFamilyLooseGraph.nodes.filter((node) => node.type === 'branch');
 assert.equal(branchFamilyLooseBranches.length, 1, 'same branch family with a truncated long first message should create one BranchNode');
 assert.equal(branchFamilyLooseBranches[0].data.routeCount, 3, 'same branch family should support base + Branch #1 + Branch #2');
+assert.equal(branchFamilyLooseBranches[0].data.branchSource, 'filename_family', 'filename family branch should expose filename_family source');
+assert.equal(branchFamilyLooseBranches[0].data.branchSourceLabel, 'Filename family', 'filename family branch should expose readable source label');
 assert.equal(branchFamilyLooseGraph.debug.acceptedBranchCount, 1, 'same branch family loose prefix should be accepted');
+assert.equal(branchFamilyLooseGraph.debug.candidates[0].source, 'filename_family', 'filename family candidate debug should expose source');
 assert.equal(branchFamilyLooseGraph.debug.candidates[0].sharedPrefixMessages, 3, 'same branch family should keep the shared prefix after loose first-message match');
 
 const unrelatedLooseGraph = buildGraph(unrelatedLoosePrefixFixtureCorpus);
@@ -165,7 +170,10 @@ const metadataParentGraph = buildGraph(metadataParentFixtureCorpus);
 const metadataParentBranches = metadataParentGraph.nodes.filter((node) => node.type === 'branch');
 assert.equal(metadataParentBranches.length, 1, 'ST main_chat parent chain should create one BranchNode without relying on Branch # filenames');
 assert.equal(metadataParentBranches[0].data.routeCount, 3, 'ST main_chat parent chain should keep parent + children in one route group');
+assert.equal(metadataParentBranches[0].data.branchSource, 'st_metadata', 'ST metadata branch should expose st_metadata source');
+assert.equal(metadataParentBranches[0].data.branchSourceLabel, 'ST metadata', 'ST metadata branch should expose readable source label');
 assert.equal(metadataParentGraph.debug.acceptedBranchCount, 1, 'ST main_chat parent chain should accept the shared branch prefix');
+assert.equal(metadataParentGraph.debug.candidates[0].source, 'st_metadata', 'ST metadata candidate debug should expose source');
 assert.deepEqual(
   metadataParentGraph.debug.candidates[0].fileNames,
   ['Parent Route.jsonl', 'Child Alpha.jsonl', 'Child Beta.jsonl'],
