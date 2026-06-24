@@ -195,6 +195,7 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
               </div>
               <Inspector
                 node={selectedNode}
+                selectedRoute={selectedRouteItem}
                 navigationError={navigationError}
                 navigationNotice={navigationNotice}
                 isNavigating={isNavigating}
@@ -315,7 +316,7 @@ function RouteNode({ data, type }) {
   );
 }
 
-function Inspector({ node, navigationError, navigationNotice, isNavigating, onNavigate }) {
+function Inspector({ node, selectedRoute, navigationError, navigationNotice, isNavigating, onNavigate }) {
   if (!node) {
     return (
       <aside className="story-route-viewer-inspector">
@@ -388,6 +389,9 @@ function Inspector({ node, navigationError, navigationNotice, isNavigating, onNa
           label={isNavigating ? 'Jumping...' : 'Jump to branch point'}
           onClick={() => onNavigate?.(node)}
         />
+        {selectedRoute?.branchId === node.id && (
+          <SelectedRouteCard route={selectedRoute} isNavigating={isNavigating} onNavigate={onNavigate} />
+        )}
         <div className="story-route-viewer-branch-list">
           {(node.data.branchRoutes || []).map((route) => (
             <div className="story-route-viewer-branch-item" key={route.fileName}>
@@ -425,6 +429,34 @@ function Inspector({ node, navigationError, navigationNotice, isNavigating, onNa
       <InspectorRow label="Type" value={node.type} />
       <InspectorRow label="Detail" value={node.data.detail} />
     </aside>
+  );
+}
+
+function SelectedRouteCard({ route, isNavigating, onNavigate }) {
+  return (
+    <section className="story-route-viewer-selected-route">
+      <div className="story-route-viewer-selected-route-head">
+        <span className="story-route-viewer-route-chip">{route.routeLabel}</span>
+        <strong>Selected Route</strong>
+      </div>
+      <InspectorRow label="File" value={route.fileName} />
+      <InspectorRow label="Messages" value={route.messageCount} />
+      <InspectorRow label="ChatEnd" value={route.chatEnd} />
+      <InspectorPreview label="Next" value={route.nextPreview} />
+      <button
+        className="menu_button story-route-viewer-branch-jump"
+        type="button"
+        disabled={isNavigating}
+        onClick={() =>
+          onNavigate?.({
+            id: route.key,
+            data: { navigationTarget: route.navigationTarget },
+          })
+        }
+      >
+        {isNavigating ? 'Jumping...' : 'Jump to route'}
+      </button>
+    </section>
   );
 }
 

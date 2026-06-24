@@ -470,6 +470,33 @@
   border-top: 1px solid var(--srv-border);
 }
 
+.story-route-viewer-selected-route {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid rgba(125, 211, 252, 0.62);
+  border-radius: var(--horae-radius-sm, 6px);
+  background: rgba(14, 116, 144, 0.14);
+}
+
+.story-route-viewer-selected-route-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.story-route-viewer-selected-route-head strong {
+  font-size: 12px !important;
+  line-height: 1.2;
+}
+
+.story-route-viewer-selected-route .story-route-viewer-inspector-row,
+.story-route-viewer-selected-route .story-route-viewer-inspector-preview {
+  padding: 0;
+  border-top: 0;
+}
+
 .story-route-viewer-branch-item {
   display: grid;
   gap: 5px;
