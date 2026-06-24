@@ -286,6 +286,7 @@ function createGraphBuilder(root) {
       status,
       reason,
       source: branchSource,
+      sourceRisk: getBranchSourceRisk(branchSource),
       stBranchPoint: makeDebugBranchPoint(branchMeta, routes, depth + sharedLength),
       fileNames: routes.map((route) => route.fileName),
       fileCount: routes.length,
@@ -375,6 +376,7 @@ function createGraphBuilder(root) {
           status: candidate.status,
           reason: candidate.reason || 'accepted',
           source: candidate.source,
+          sourceRisk: candidate.sourceRisk,
           stBranchPoint: candidate.stBranchPoint || '',
           files: candidate.fileNames.join(' | '),
           prefixRange: candidate.sharedPrefixRange,
@@ -435,6 +437,7 @@ function normalizeRoute(chat, index) {
     metadata: chat.metadata || {},
     metadataBranchFamilyKey: null,
     familyKey: getBranchFamilyKey(fileName),
+    hasBranchSuffix: hasBranchFileNameSuffix(fileName),
     messages,
     normalizedTexts,
     textHashes: normalizedTexts.map((text) => hashText(text)),
@@ -472,6 +475,7 @@ function groupRoutesByFirstMessage(routes) {
 
   familyGroups.forEach((groupRoutes) => {
     if (groupRoutes.length < 2) return;
+    if (!groupRoutes.some((route) => route.hasBranchSuffix)) return;
     groupRoutes.forEach((route) => groupedRoutes.add(route.index));
     result.push({
       kind: 'nonEmpty',
@@ -925,6 +929,8 @@ function createBranchNode({ id, routes, depth, nextGroups, branchSource = 'text_
       inspectorType: 'branch',
       branchSource,
       branchSourceLabel: getBranchSourceLabel(branchSource),
+      branchSourceRisk: getBranchSourceRisk(branchSource),
+      branchSourceRiskLabel: getBranchSourceRiskLabel(branchSource),
       stBranchPoint: metadataBranchPoint
         ? `${metadataBranchPoint.parentFileName} #${metadataBranchPoint.messageIndex}`
         : '',
@@ -1106,6 +1112,20 @@ function getBranchSourceLabel(source) {
   return 'Text prefix';
 }
 
+function getBranchSourceRisk(source) {
+  if (source === 'st_metadata') return 'low';
+  if (source === 'filename_family') return 'high';
+  if (source === 'exact_prefix') return 'medium';
+  return 'medium';
+}
+
+function getBranchSourceRiskLabel(source) {
+  if (source === 'filename_family') return 'High risk fallback';
+  if (source === 'exact_prefix') return 'Medium risk text match';
+  if (source === 'st_metadata') return 'Low risk ST metadata';
+  return 'Medium risk text match';
+}
+
 function normalizeMessageText(message) {
   return String(message?.mes || '')
     .replace(/<[^>]*>/g, ' ')
@@ -1115,6 +1135,10 @@ function normalizeMessageText(message) {
 
 function getBranchFamilyKey(fileName) {
   return String(fileName).replace(/ - Branch #\d+(?=\.jsonl$|$)/i, '');
+}
+
+function hasBranchFileNameSuffix(fileName) {
+  return / - Branch #\d+(?=\.jsonl$|$)/i.test(String(fileName));
 }
 
 function getChatNameFromFileName(fileName) {

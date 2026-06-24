@@ -145,6 +145,24 @@ export const unrelatedLoosePrefixFixtureCorpus = {
   ],
 };
 
+export const filenameFamilyWithoutBranchSuffixFixtureCorpus = {
+  scope: 'character',
+  title: 'Filename Family Without Branch Suffix Fixture',
+  chatCount: 2,
+  totalMessages: 4,
+  emptyChats: [],
+  chats: [
+    {
+      fileName: 'Loose Route.jsonl',
+      messages: [message(longIntroFull), message('a2')],
+    },
+    {
+      fileName: 'Loose Route.jsonl',
+      messages: [message(longIntroShort), message('b2')],
+    },
+  ],
+};
+
 export const metadataParentFixtureCorpus = {
   scope: 'character',
   title: 'Metadata Parent Fixture',

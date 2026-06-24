@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { buildGraph } from '../src/graph/buildGraph.js';
 import {
   branchFamilyLoosePrefixFixtureCorpus,
+  filenameFamilyWithoutBranchSuffixFixtureCorpus,
   metadataBranchLinksFixtureCorpus,
   metadataMissingParentFixtureCorpus,
   metadataNestedBranchLinksFixtureCorpus,
@@ -167,9 +168,24 @@ assert.equal(branchFamilyLooseBranches.length, 1, 'same branch family with a tru
 assert.equal(branchFamilyLooseBranches[0].data.routeCount, 3, 'same branch family should support base + Branch #1 + Branch #2');
 assert.equal(branchFamilyLooseBranches[0].data.branchSource, 'filename_family', 'filename family branch should expose filename_family source');
 assert.equal(branchFamilyLooseBranches[0].data.branchSourceLabel, 'Filename family', 'filename family branch should expose readable source label');
+assert.equal(branchFamilyLooseBranches[0].data.branchSourceRisk, 'high', 'filename family branch should expose high risk');
+assert.equal(branchFamilyLooseBranches[0].data.branchSourceRiskLabel, 'High risk fallback', 'filename family branch should expose readable risk label');
 assert.equal(branchFamilyLooseGraph.debug.acceptedBranchCount, 1, 'same branch family loose prefix should be accepted');
 assert.equal(branchFamilyLooseGraph.debug.candidates[0].source, 'filename_family', 'filename family candidate debug should expose source');
+assert.equal(branchFamilyLooseGraph.debug.candidates[0].sourceRisk, 'high', 'filename family candidate debug should expose high risk');
 assert.equal(branchFamilyLooseGraph.debug.candidates[0].sharedPrefixMessages, 3, 'same branch family should keep the shared prefix after loose first-message match');
+
+const filenameFamilyWithoutBranchSuffixGraph = buildGraph(filenameFamilyWithoutBranchSuffixFixtureCorpus);
+assert.equal(
+  filenameFamilyWithoutBranchSuffixGraph.nodes.filter((node) => node.type === 'branch').length,
+  0,
+  'same filename family without a Branch suffix should not use filename_family fallback',
+);
+assert.equal(
+  filenameFamilyWithoutBranchSuffixGraph.debug.candidateBranchCount,
+  0,
+  'same filename family without a Branch suffix should not become a branch candidate',
+);
 
 const unrelatedLooseGraph = buildGraph(unrelatedLoosePrefixFixtureCorpus);
 assert.equal(unrelatedLooseGraph.nodes.filter((node) => node.type === 'branch').length, 0, 'unrelated files with loose-only matching text should not merge');
