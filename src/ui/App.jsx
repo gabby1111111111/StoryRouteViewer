@@ -18,6 +18,7 @@ const defaultEdgeOptions = {
 
 export function App({ status, corpus, graph, error, onClose, onRefresh }) {
   const flowShellRef = useRef(null);
+  const flowInstanceRef = useRef(null);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [navigationError, setNavigationError] = useState('');
   const [navigationNotice, setNavigationNotice] = useState('');
@@ -86,6 +87,21 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
     }
   };
 
+  const focusGraphNode = (nodeId) => {
+    const flow = flowInstanceRef.current;
+    const node = graph?.nodes?.find((item) => item.id === nodeId);
+    if (!flow || !node?.position) return;
+
+    const width = node.width || node.measured?.width || 178;
+    const height = node.height || node.measured?.height || 92;
+    window.requestAnimationFrame(() => {
+      flow.setCenter(node.position.x + width / 2, node.position.y + height / 2, {
+        zoom: 0.9,
+        duration: 260,
+      });
+    });
+  };
+
   useEffect(() => {
     if (status !== 'ready') return undefined;
 
@@ -152,9 +168,11 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
                 selectedRouteKey={selectedRouteKey}
                 isNavigating={isNavigating}
                 onSelect={(route) => {
+                  const anchorNodeId = route.anchorNodeId || route.branchId;
                   setSelectedRouteKey(route.key);
-                  setSelectedNodeId(route.anchorNodeId || route.branchId);
+                  setSelectedNodeId(anchorNodeId);
                   setNavigationError('');
+                  focusGraphNode(anchorNodeId);
                 }}
                 onNavigate={(route) => {
                   setSelectedRouteKey(route.key);
@@ -183,6 +201,9 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
                   minZoom={0.35}
                   maxZoom={1.5}
                   proOptions={{ hideAttribution: true }}
+                  onInit={(instance) => {
+                    flowInstanceRef.current = instance;
+                  }}
                   onNodeClick={(_, node) => {
                     setSelectedRouteKey('');
                     setSelectedNodeId(node.id);
