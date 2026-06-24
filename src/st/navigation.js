@@ -48,7 +48,7 @@ export async function scrollToMessage(messageIndex) {
   const rendered = await ensureMessageRendered(messageIndex);
   const message = rendered ? findMessageElement(messageIndex) : null;
   if (!message) {
-    throw new Error(`Cannot find message ${messageIndex}.`);
+    throw new Error(`Cannot find message ${messageIndex}. The chat opened, but that floor was not rendered.`);
   }
 
   message.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -59,19 +59,46 @@ export async function scrollToMessage(messageIndex) {
 }
 
 export async function openChatAndGoTo(fileName, messageIndex, fallbackMessageIndex = null) {
-  await openChat(fileName);
+  const chatResult = await openChat(fileName);
 
   if (!Number.isInteger(messageIndex) || messageIndex < 0) {
-    return { ok: true, openedOnly: true };
+    return {
+      ok: true,
+      action: 'opened_chat',
+      fileName: chatResult.fileName,
+      chatId: chatResult.chatId,
+      scope: chatResult.scope,
+      alreadyOpen: chatResult.alreadyOpen === true,
+      openedOnly: true,
+    };
   }
 
   try {
-    return await scrollToMessage(messageIndex);
+    const scrollResult = await scrollToMessage(messageIndex);
+    return {
+      ok: true,
+      action: 'jumped_to_message',
+      fileName: chatResult.fileName,
+      chatId: chatResult.chatId,
+      scope: chatResult.scope,
+      alreadyOpen: chatResult.alreadyOpen === true,
+      messageIndex: scrollResult.messageIndex,
+    };
   } catch (error) {
     if (Number.isInteger(fallbackMessageIndex) && fallbackMessageIndex >= 0 && fallbackMessageIndex !== messageIndex) {
-      return scrollToMessage(fallbackMessageIndex);
+      const fallbackResult = await scrollToMessage(fallbackMessageIndex);
+      return {
+        ok: true,
+        action: 'jumped_to_fallback',
+        fileName: chatResult.fileName,
+        chatId: chatResult.chatId,
+        scope: chatResult.scope,
+        alreadyOpen: chatResult.alreadyOpen === true,
+        messageIndex: fallbackResult.messageIndex,
+        requestedMessageIndex: messageIndex,
+      };
     }
-    throw error;
+    throw new Error(`Opened ${chatResult.fileName}, but could not scroll to message ${messageIndex}: ${error?.message || error}`);
   }
 }
 

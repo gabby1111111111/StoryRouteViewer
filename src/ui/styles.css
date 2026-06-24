@@ -391,6 +391,19 @@
   overflow-wrap: anywhere;
 }
 
+.story-route-viewer-inspector-notice {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(74, 222, 128, 0.48);
+  border-radius: var(--horae-radius-sm, 6px);
+  background: rgba(74, 222, 128, 0.12);
+  color: #bbf7d0;
+  font-size: 12px !important;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .story-route-viewer-jump-highlight {
   outline: 2px solid #8fb7ff !important;
   outline-offset: 2px;

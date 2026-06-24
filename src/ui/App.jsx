@@ -20,6 +20,7 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
   const flowShellRef = useRef(null);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [navigationError, setNavigationError] = useState('');
+  const [navigationNotice, setNavigationNotice] = useState('');
   const [isNavigating, setIsNavigating] = useState(false);
   const [flowResizeVersion, setFlowResizeVersion] = useState(0);
   const [selectedRouteKey, setSelectedRouteKey] = useState('');
@@ -56,6 +57,7 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
     setSelectedNodeId(null);
     setSelectedRouteKey('');
     setNavigationError('');
+    setNavigationNotice('');
   }, [graph]);
 
   const navigateToNode = async (node) => {
@@ -64,11 +66,15 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
 
     setSelectedNodeId(node.id);
     setNavigationError('');
+    setNavigationNotice('');
     setIsNavigating(true);
 
     try {
       onClose?.();
-      await openChatAndGoTo(target.fileName, target.messageIndex, target.fallbackMessageIndex);
+      const result = await openChatAndGoTo(target.fileName, target.messageIndex, target.fallbackMessageIndex);
+      const message = formatNavigationSuccess(result);
+      setNavigationNotice(message);
+      notifyNavigationSuccess(message);
     } catch (navigationFailure) {
       console.error('[Story Route Viewer] Navigation failed', navigationFailure);
       const message = navigationFailure?.message || String(navigationFailure);
@@ -189,6 +195,7 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
               <Inspector
                 node={selectedNode}
                 navigationError={navigationError}
+                navigationNotice={navigationNotice}
                 isNavigating={isNavigating}
                 onNavigate={navigateToNode}
               />
@@ -279,7 +286,7 @@ function RouteNode({ data, type }) {
   );
 }
 
-function Inspector({ node, navigationError, isNavigating, onNavigate }) {
+function Inspector({ node, navigationError, navigationNotice, isNavigating, onNavigate }) {
   if (!node) {
     return (
       <aside className="story-route-viewer-inspector">
@@ -305,6 +312,7 @@ function Inspector({ node, navigationError, isNavigating, onNavigate }) {
           label={isNavigating ? 'Jumping...' : 'Jump to start'}
           onClick={() => onNavigate?.(node)}
         />
+        <NavigationNotice text={navigationNotice} />
         <NavigationError text={navigationError} />
       </aside>
     );
@@ -330,6 +338,7 @@ function Inspector({ node, navigationError, isNavigating, onNavigate }) {
           label={isNavigating ? 'Jumping...' : node.data.isEmpty ? 'Open chat' : 'Jump to end'}
           onClick={() => onNavigate?.(node)}
         />
+        <NavigationNotice text={navigationNotice} />
         <NavigationError text={navigationError} />
       </aside>
     );
@@ -375,6 +384,7 @@ function Inspector({ node, navigationError, isNavigating, onNavigate }) {
             </div>
           ))}
         </div>
+        <NavigationNotice text={navigationNotice} />
         <NavigationError text={navigationError} />
       </aside>
     );
@@ -410,6 +420,11 @@ function InspectorRouteBadge({ routeLane }) {
 function NavigationError({ text }) {
   if (!text) return null;
   return <div className="story-route-viewer-inspector-error">{text}</div>;
+}
+
+function NavigationNotice({ text }) {
+  if (!text) return null;
+  return <div className="story-route-viewer-inspector-notice">{text}</div>;
 }
 
 function InspectorRow({ label, value }) {
@@ -494,6 +509,38 @@ function getRouteItems(graph) {
       seen.add(route.key);
       return true;
     });
+}
+
+function formatNavigationSuccess(result) {
+  if (!result?.ok) return 'Jump completed.';
+  const fileName = result.fileName || 'chat';
+  const alreadyOpen = result.alreadyOpen ? 'Already open' : 'Opened';
+
+  if (result.action === 'opened_chat') {
+    return `${alreadyOpen}: ${fileName}.`;
+  }
+
+  if (result.action === 'jumped_to_fallback') {
+    return `${alreadyOpen}: ${fileName}. Target floor ${result.requestedMessageIndex} was unavailable; jumped to ${result.messageIndex}.`;
+  }
+
+  if (result.action === 'jumped_to_message') {
+    return `${alreadyOpen}: ${fileName}. Jumped to message ${result.messageIndex}.`;
+  }
+
+  return `${alreadyOpen}: ${fileName}.`;
+}
+
+function notifyNavigationSuccess(message) {
+  if (globalThis.toastr?.success) {
+    globalThis.toastr.success(message);
+    return;
+  }
+  if (globalThis.toastr?.info) {
+    globalThis.toastr.info(message);
+    return;
+  }
+  console.info(`[Story Route Viewer] ${message}`);
 }
 
 function getSubtitle(status, corpus) {
