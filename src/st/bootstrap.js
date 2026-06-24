@@ -82,7 +82,12 @@ function ensureModal() {
   return modalElement;
 }
 
-function openModal() {
+function openModal(options = {}) {
+  if (options?.auto) {
+    openAutoModal();
+    return;
+  }
+
   ensureModal();
   modalElement.classList.add('is-open');
   renderLoading();
@@ -102,6 +107,23 @@ async function refreshData({ waitForContext = false } = {}) {
   } catch (error) {
     console.error('[Story Route Viewer] Failed to load chats', error);
     renderApp({ status: 'error', error: getErrorMessage(error) });
+  }
+}
+
+async function openAutoModal() {
+  try {
+    const corpus = await readCorpusWhenReady({ waitForContext: true });
+    const graph = buildGraph(corpus);
+    ensureModal();
+    modalElement.classList.add('is-open');
+    renderApp({ status: 'ready', corpus, graph });
+  } catch (error) {
+    if (isMissingContextError(error)) {
+      console.info('[Story Route Viewer] Auto-open skipped: no active character or group chat.');
+      return;
+    }
+
+    console.error('[Story Route Viewer] Auto-open failed', error);
   }
 }
 
@@ -142,7 +164,8 @@ function getErrorMessage(error) {
 }
 
 function isMissingContextError(error) {
-  return error instanceof Error && error.message.includes('请先打开一个角色或群聊');
+  if (!(error instanceof Error)) return false;
+  return error.message.includes('请先打开') || error.message.includes('角色或群聊');
 }
 
 function delay(ms) {

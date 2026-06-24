@@ -62,15 +62,15 @@ function scheduleDebugAutoOpen() {
   didAutoOpen = true;
   setTimeout(() => {
     console.warn('[Story Route Viewer] debug auto-open');
-    openStoryRouteViewer();
+    openStoryRouteViewer({ auto: true });
   }, AUTO_OPEN_DELAY_MS);
 }
 
-async function openStoryRouteViewer() {
+async function openStoryRouteViewer(options = {}) {
   try {
     await loadApp();
     if (window.StoryRouteViewer?.open) {
-      window.StoryRouteViewer.open();
+      window.StoryRouteViewer.open(options);
       return;
     }
     throw new Error('StoryRouteViewer.open was not registered');
