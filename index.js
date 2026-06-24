@@ -1,0 +1,124 @@
+const DIST_ENTRY = '/scripts/extensions/third-party/StoryRouteViewer/dist/index.iife.js';
+const AUTO_OPEN_ON_LOAD = true;
+const AUTO_OPEN_DELAY_MS = 2500;
+
+let appLoadPromise = null;
+let didAutoOpen = false;
+
+console.warn('[Story Route Viewer] root entry loaded');
+ensureBrowserProcessShim();
+
+mountFallbackMenu();
+
+function ensureBrowserProcessShim() {
+  globalThis.process ||= {};
+  globalThis.process.env ||= {};
+  globalThis.process.env.NODE_ENV ||= 'production';
+}
+
+function mountFallbackMenu() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => waitForExtensionsSettings().then(appendMenu));
+    return;
+  }
+
+  waitForExtensionsSettings().then(appendMenu);
+}
+
+async function waitForExtensionsSettings() {
+  const existing = document.getElementById('extensions_settings');
+  if (existing) return existing;
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    await delay(100);
+    const container = document.getElementById('extensions_settings');
+    if (container) return container;
+  }
+
+  return document.body;
+}
+
+function appendMenu(container) {
+  if (document.getElementById('story_route_viewer_entry')) return;
+
+  const entry = document.createElement('div');
+  entry.id = 'story_route_viewer_entry';
+  entry.className = 'story-route-viewer-entry';
+  entry.innerHTML = `
+    <div id="story_route_viewer_open" class="menu_button story-route-viewer-menu-button">
+      <i class="fa-solid fa-route"></i>
+      <span>剧情分叉地图</span>
+    </div>
+  `;
+  container.appendChild(entry);
+
+  document.getElementById('story_route_viewer_open')?.addEventListener('click', openStoryRouteViewer);
+  console.warn('[Story Route Viewer] fallback menu mounted');
+  scheduleDebugAutoOpen();
+}
+
+function scheduleDebugAutoOpen() {
+  if (!AUTO_OPEN_ON_LOAD || didAutoOpen) return;
+  didAutoOpen = true;
+  setTimeout(() => {
+    console.warn('[Story Route Viewer] debug auto-open');
+    openStoryRouteViewer();
+  }, AUTO_OPEN_DELAY_MS);
+}
+
+async function openStoryRouteViewer() {
+  try {
+    await loadApp();
+    if (window.StoryRouteViewer?.open) {
+      window.StoryRouteViewer.open();
+      return;
+    }
+    throw new Error('StoryRouteViewer.open was not registered');
+  } catch (error) {
+    console.error('[Story Route Viewer] failed to open', error);
+    showFallbackError(error);
+  }
+}
+
+function loadApp() {
+  if (!appLoadPromise) {
+    ensureBrowserProcessShim();
+    appLoadPromise = import(`${DIST_ENTRY}?v=${Date.now()}`);
+  }
+  return appLoadPromise;
+}
+
+function showFallbackError(error) {
+  const modal = document.createElement('div');
+  modal.className = 'story-route-viewer-modal is-open';
+  modal.innerHTML = `
+    <div class="story-route-viewer-shell">
+      <header class="story-route-viewer-header">
+        <div>
+          <h2>剧情分叉地图</h2>
+          <p>插件应用加载失败</p>
+        </div>
+      </header>
+      <main class="story-route-viewer-content">
+        <div class="story-route-viewer-state error">${escapeHtml(error?.message || String(error))}</div>
+      </main>
+    </div>
+  `;
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) modal.remove();
+  });
+  document.body.appendChild(modal);
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
