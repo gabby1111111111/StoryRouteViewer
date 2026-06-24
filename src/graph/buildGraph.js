@@ -53,7 +53,8 @@ export function buildGraph(corpus) {
         return;
       }
 
-      builder.addRouteTree({
+      const addTree = group.source === 'st_metadata' ? builder.addMetadataRouteTree : builder.addRouteTree;
+      addTree({
         parentId: root.id,
         routes: group.routes,
         depth: 0,
@@ -290,7 +291,7 @@ function createGraphBuilder(root) {
       stBranchPoint: makeDebugBranchPoint(branchMeta, routes, depth + sharedLength),
       fileNames: routes.map((route) => route.fileName),
       fileCount: routes.length,
-      sharedPrefixRange: `${depth} - ${depth + sharedLength - 1}`,
+      sharedPrefixRange: sharedLength > 0 ? `${depth} - ${depth + sharedLength - 1}` : `at ${depth}`,
       sharedPrefixMessages: sharedLength,
       sharedPrefixTextLength: validation.textLength,
       sharedPrefixPreview: validation.preview,
@@ -365,6 +366,7 @@ function createGraphBuilder(root) {
   }
 
   return {
+    addMetadataRouteTree,
     addRouteTree,
     addChatEnd,
     getGraph: () => {
@@ -418,6 +420,156 @@ function createGraphBuilder(root) {
       source,
       depth,
       messageCount: route.messages.length,
+    });
+  }
+
+  function addMetadataRouteTree({ parentId, routes, depth, column, rowStart, branchMeta = null }) {
+    const tree = createMetadataTree(routes, branchMeta);
+    if (!tree) {
+      addRouteTree({
+        parentId,
+        routes,
+        depth,
+        column,
+        rowStart,
+        branchSource: 'st_metadata',
+        branchMeta,
+      });
+      return;
+    }
+
+    let currentRow = rowStart;
+    tree.roots.forEach((route) => {
+      const leafCount = Math.max(1, countMetadataLeaves(route, tree.childrenByFileName));
+      addMetadataRoute({
+        parentId,
+        route,
+        depth,
+        column,
+        rowStart: currentRow,
+        rowCount: leafCount,
+        tree,
+        branchMeta,
+      });
+      currentRow += leafCount;
+    });
+  }
+
+  function addMetadataRoute({ parentId, route, depth, column, rowStart, rowCount, tree, branchMeta }) {
+    const childRoutes = tree.childrenByFileName.get(route.fileName) || [];
+    if (childRoutes.length === 0) {
+      addSingleRoute({
+        parentId,
+        route,
+        depth,
+        column,
+        row: rowStart,
+        routeLane: arguments[0]?.routeLane || null,
+        incomingEdgeLabel: arguments[0]?.incomingEdgeLabel || '',
+        graphReason: depth === 0 ? 'single_route_group' : '',
+        graphReasonSource: 'st_metadata',
+      });
+      return;
+    }
+
+    const branchDepth = inferMetadataBranchDepth(route, childRoutes, depth);
+    const rowCenter = getRowCenter(rowStart, rowCount);
+    let branchParentId = parentId;
+    let branchColumn = column;
+
+    if (branchDepth > depth) {
+      const parentSegment = createSegmentNode({
+        id: `segment-${segmentCount}`,
+        typeLabel: 'ST parent before branch',
+        title: makeSegmentTitle(route.messages, depth, branchDepth - 1),
+        detail: `${route.fileName} 路 ${branchDepth - depth} parent messages`,
+        fileName: route.fileName,
+        messages: route.messages,
+        startIndex: depth,
+        endIndex: branchDepth - 1,
+        x: getColumnX(column),
+        y: rowCenter,
+      });
+      segmentCount += 1;
+      nodes.push(parentSegment);
+      edges.push(createEdge(`${parentId}-to-${parentSegment.id}`, parentId, parentSegment.id, {
+        label: arguments[0]?.incomingEdgeLabel || '',
+      }));
+      branchParentId = parentSegment.id;
+      branchColumn = column + 1;
+    }
+
+    const optionGroups = [
+      {
+        key: branchDepth < route.textHashes.length ? route.textHashes[branchDepth] : CHAT_END_KEY,
+        routes: [route],
+      },
+      ...childRoutes.map((childRoute) => ({
+        key: branchDepth < childRoute.textHashes.length ? childRoute.textHashes[branchDepth] : CHAT_END_KEY,
+        routes: [childRoute],
+      })),
+    ];
+    const branchRoutes = [route, ...childRoutes];
+    const branch = createBranchNode({
+      id: `branch-${branchCount}`,
+      routes: branchRoutes,
+      depth: branchDepth,
+      nextGroups: optionGroups,
+      branchSource: 'st_metadata',
+      branchMeta,
+      x: getColumnX(branchColumn),
+      y: rowCenter,
+    });
+    branchCount += 1;
+    nodes.push(branch);
+    edges.push(createEdge(`${branchParentId}-to-${branch.id}`, branchParentId, branch.id, {
+      label: branchParentId === parentId ? arguments[0]?.incomingEdgeLabel || '' : '',
+    }));
+    debug.candidateBranchCount += 1;
+    debug.acceptedBranchCount += 1;
+    recordCandidate({
+      status: 'accepted',
+      reason: '',
+      routes: branchRoutes,
+      depth,
+      sharedLength: Math.max(0, branchDepth - depth),
+      validation: validateMetadataPrefix(route.messages, depth, branchDepth),
+      branchSource: 'st_metadata',
+      branchMeta,
+    });
+
+    let optionRow = rowStart;
+    const parentLane = createRouteLane(optionGroups[0], 0, optionGroups.length, branchDepth);
+    const parentLeafCount = 1;
+    addSingleRoute({
+      parentId: branch.id,
+      route,
+      depth: branchDepth,
+      column: branchColumn + 1,
+      row: optionRow,
+      routeLane: parentLane,
+      incomingEdgeLabel: parentLane.label,
+      graphReasonSource: 'st_metadata',
+    });
+    optionRow += parentLeafCount;
+
+    childRoutes.forEach((childRoute, childIndex) => {
+      const group = optionGroups[childIndex + 1];
+      const lane = createRouteLane(group, childIndex + 1, optionGroups.length, branchDepth);
+      const childLeafCount = Math.max(1, countMetadataLeaves(childRoute, tree.childrenByFileName));
+      addMetadataRoute({
+        parentId: branch.id,
+        route: childRoute,
+        depth: branchDepth,
+        column: branchColumn + 1,
+        rowStart: optionRow,
+        rowCount: childLeafCount,
+        tree,
+        branchMeta,
+        routeLane: lane,
+        incomingEdgeLabel: lane.label,
+      });
+      optionRow += childLeafCount;
     });
   }
 }
@@ -628,6 +780,61 @@ function createMetadataBranchMeta(routes) {
   };
 }
 
+function createMetadataTree(routes, branchMeta) {
+  const routeByFileName = new Map(routes.map((route) => [route.fileName, route]));
+  const childrenByFileName = new Map(routes.map((route) => [route.fileName, []]));
+  const childFileNames = new Set();
+  const links = Array.isArray(branchMeta?.mainChatLinks)
+    ? branchMeta.mainChatLinks.filter((link) => link.parentFileName && routeByFileName.has(link.parentFileName) && routeByFileName.has(link.childFileName))
+    : [];
+
+  if (links.length === 0) return null;
+
+  links.forEach((link) => {
+    childrenByFileName.get(link.parentFileName).push(routeByFileName.get(link.childFileName));
+    childFileNames.add(link.childFileName);
+  });
+  childrenByFileName.forEach((children) => children.sort((a, b) => a.index - b.index));
+
+  const roots = routes
+    .filter((route) => !childFileNames.has(route.fileName))
+    .sort((a, b) => a.index - b.index);
+
+  return {
+    roots: roots.length > 0 ? roots : [routes.slice().sort((a, b) => a.index - b.index)[0]],
+    childrenByFileName,
+  };
+}
+
+function countMetadataLeaves(route, childrenByFileName) {
+  const children = childrenByFileName.get(route.fileName) || [];
+  if (children.length === 0) return 1;
+  return 1 + children.reduce((sum, child) => sum + countMetadataLeaves(child, childrenByFileName), 0);
+}
+
+function inferMetadataBranchDepth(parentRoute, childRoutes, depth) {
+  const sharedLengths = childRoutes.map((childRoute) => getCommonPrefixLength([parentRoute, childRoute], depth));
+  const bestSharedLength = Math.max(0, ...sharedLengths);
+  if (bestSharedLength > 0) {
+    return Math.min(parentRoute.messages.length, depth + bestSharedLength);
+  }
+
+  if (depth > 0) return depth;
+  return Math.min(1, parentRoute.messages.length);
+}
+
+function validateMetadataPrefix(messages, startIndex, endIndexExclusive) {
+  const length = Math.max(0, endIndexExclusive - startIndex);
+  const prefixMessages = messages.slice(startIndex, endIndexExclusive);
+  const contentMessages = prefixMessages.filter((message) => isStoryContentMessage(message));
+  const textLength = contentMessages.reduce((sum, message) => sum + normalizeMessageText(message).length, 0);
+  return {
+    accepted: true,
+    textLength,
+    preview: length > 0 ? makePrefixPreview(contentMessages) : '(metadata branch point)',
+  };
+}
+
 function collectMetadataBranchPoints(parentLinks) {
   if (!Array.isArray(parentLinks) || parentLinks.length === 0) return [];
 
@@ -693,8 +900,15 @@ function inferMainChatBranchPoint(branchMeta, routes, branchDepth) {
   if (links.length === 0 || !Array.isArray(routes) || routes.length === 0) return null;
 
   const routeByFileName = new Map(routes.map((route) => [route.fileName, route]));
+  const routeFileNames = new Set(routeByFileName.keys());
+  const relevantLinks = links.filter((link) => (
+    link.parentFileName &&
+    routeFileNames.has(link.parentFileName) &&
+    routeFileNames.has(link.childFileName)
+  ));
+  const candidateLinks = relevantLinks.length > 0 ? relevantLinks : links;
   const linkedParentFileNames = Array.from(new Set(
-    links.map((link) => link.parentFileName).filter((fileName) => fileName && routeByFileName.has(fileName)),
+    candidateLinks.map((link) => link.parentFileName).filter((fileName) => fileName && routeByFileName.has(fileName)),
   ));
   if (linkedParentFileNames.length === 0) return null;
 
@@ -702,7 +916,7 @@ function inferMainChatBranchPoint(branchMeta, routes, branchDepth) {
     .map((fileName) => routeByFileName.get(fileName))
     .sort((a, b) => a.index - b.index)[0];
   const messageIndex = Math.max(0, Math.min(branchDepth - 1, parentRoute.messages.length - 1));
-  const children = links
+  const children = candidateLinks
     .filter((link) => link.parentFileName === parentRoute.fileName)
     .map((link) => ({
       chatName: link.childChatName,
