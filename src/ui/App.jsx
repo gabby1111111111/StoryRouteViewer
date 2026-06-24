@@ -38,6 +38,8 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
   const [isNavigating, setIsNavigating] = useState(false);
   const [flowResizeVersion, setFlowResizeVersion] = useState(0);
   const [selectedRouteKey, setSelectedRouteKey] = useState('');
+  const [showRouteList, setShowRouteList] = useState(true);
+  const [showInspector, setShowInspector] = useState(true);
   const selectedNode = useMemo(
     () => graph?.nodes?.find((node) => node.id === selectedNodeId) || null,
     [graph, selectedNodeId],
@@ -146,7 +148,15 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
     );
 
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [status, displayNodes, graph?.edges, flowResizeVersion]);
+  }, [status, displayNodes, graph?.edges, flowResizeVersion, showRouteList, showInspector]);
+
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const timer = window.setTimeout(() => {
+      setFlowResizeVersion((version) => version + 1);
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [status, showRouteList, showInspector]);
 
   return (
     <div className="story-route-viewer-shell">
@@ -156,6 +166,24 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
           <p>{getSubtitle(status, corpus)}</p>
         </div>
         <div className="story-route-viewer-actions">
+          <button
+            className={`menu_button ${showRouteList ? 'story-route-viewer-toggle-active' : ''}`}
+            type="button"
+            onClick={() => setShowRouteList((value) => !value)}
+            title={showRouteList ? '隐藏 Routes' : '显示 Routes'}
+          >
+            <i className="fa-solid fa-list-ul" />
+            <span>Routes</span>
+          </button>
+          <button
+            className={`menu_button ${showInspector ? 'story-route-viewer-toggle-active' : ''}`}
+            type="button"
+            onClick={() => setShowInspector((value) => !value)}
+            title={showInspector ? '隐藏 Inspector' : '显示 Inspector'}
+          >
+            <i className="fa-solid fa-circle-info" />
+            <span>Inspector</span>
+          </button>
           <button className="menu_button story-route-viewer-exit-button" type="button" onClick={onClose} title="退出插件">
             <i className="fa-solid fa-right-from-bracket" />
             <span>退出插件</span>
@@ -175,29 +203,31 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
         {status === 'ready' && (
           <>
             <StatsPanel corpus={corpus} graphStats={graphStats} />
-            <div className="story-route-viewer-workspace">
-              <RouteList
-                routes={routeItems}
-                selectedRouteKey={selectedRouteKey}
-                isNavigating={isNavigating}
-                onSelect={(route) => {
-                  const anchorNodeId = route.anchorNodeId || route.branchId;
-                  setSelectedRouteKey(route.key);
-                  setSelectedNodeId(anchorNodeId);
-                  setNavigationError('');
-                  focusGraphNode(anchorNodeId);
-                }}
-                onNavigate={(route) => {
-                  setSelectedRouteKey(route.key);
-                  navigateToNode({
-                    id: route.key,
-                    data: {
-                      routeListKey: route.key,
-                      navigationTarget: route.navigationTarget,
-                    },
-                  });
-                }}
-              />
+            <div className={`story-route-viewer-workspace${showRouteList ? '' : ' is-route-list-hidden'}${showInspector ? '' : ' is-inspector-hidden'}`}>
+              {showRouteList && (
+                <RouteList
+                  routes={routeItems}
+                  selectedRouteKey={selectedRouteKey}
+                  isNavigating={isNavigating}
+                  onSelect={(route) => {
+                    const anchorNodeId = route.anchorNodeId || route.branchId;
+                    setSelectedRouteKey(route.key);
+                    setSelectedNodeId(anchorNodeId);
+                    setNavigationError('');
+                    focusGraphNode(anchorNodeId);
+                  }}
+                  onNavigate={(route) => {
+                    setSelectedRouteKey(route.key);
+                    navigateToNode({
+                      id: route.key,
+                      data: {
+                        routeListKey: route.key,
+                        navigationTarget: route.navigationTarget,
+                      },
+                    });
+                  }}
+                />
+              )}
               <div className="story-route-viewer-flow" ref={flowShellRef}>
                 <ReactFlow
                   key={`story-route-flow-${flowResizeVersion}`}
@@ -227,14 +257,16 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
                   <Controls showInteractive={false} />
                 </ReactFlow>
               </div>
-              <Inspector
-                node={selectedNode}
-                selectedRoute={selectedRouteItem}
-                navigationError={navigationError}
-                navigationNotice={navigationNotice}
-                isNavigating={isNavigating}
-                onNavigate={navigateToNode}
-              />
+              {showInspector && (
+                <Inspector
+                  node={selectedNode}
+                  selectedRoute={selectedRouteItem}
+                  navigationError={navigationError}
+                  navigationNotice={navigationNotice}
+                  isNavigating={isNavigating}
+                  onNavigate={navigateToNode}
+                />
+              )}
             </div>
           </>
         )}
