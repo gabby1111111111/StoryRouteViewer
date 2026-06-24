@@ -111,21 +111,25 @@ async function refreshData({ waitForContext = false } = {}) {
 }
 
 async function openAutoModal() {
+  ensureModal();
+  modalElement.classList.add('is-open');
+  renderLoading();
+
   try {
     const corpus = await readCorpusWhenReady({ waitForContext: true });
     const graph = buildGraph(corpus);
-    ensureModal();
-    modalElement.classList.add('is-open');
     renderApp({ status: 'ready', corpus, graph });
     return true;
   } catch (error) {
     if (isMissingContextError(error)) {
       console.info('[Story Route Viewer] Auto-open skipped: no active character or group chat.');
+      closeModal();
       return false;
     }
 
     console.error('[Story Route Viewer] Auto-open failed', error);
-    return false;
+    renderApp({ status: 'error', error: getErrorMessage(error) });
+    return true;
   }
 }
 
