@@ -454,6 +454,7 @@ function Inspector({ node, selectedRoute, navigationError, navigationNotice, isN
         <h3>{node.data.title || '剧情段'}</h3>
         {node.data.routeLane && <InspectorRouteBadge routeLane={node.data.routeLane} />}
         <InspectorRow label="File" value={node.data.fileName} />
+        {node.data.graphReasonLabel && <InspectorRow label="Graph reason" value={node.data.graphReasonLabel} />}
         {node.data.chatFiles?.length > 0 && <InspectorPreview label="Chats" value={node.data.chatFiles.join('\n')} />}
         <InspectorRow label="Range" value={`${node.data.startIndex} - ${node.data.endIndex}`} />
         <InspectorRow label="Messages" value={node.data.messageCount} />
@@ -476,6 +477,7 @@ function Inspector({ node, selectedRoute, navigationError, navigationNotice, isN
         <h3>{node.data.isEmpty ? 'Empty Chat' : 'Chat End'}</h3>
         {node.data.routeLane && <InspectorRouteBadge routeLane={node.data.routeLane} />}
         <InspectorRow label="File" value={node.data.fileName} />
+        {node.data.graphReasonLabel && <InspectorRow label="Graph reason" value={node.data.graphReasonLabel} />}
         <InspectorRow label="Messages" value={node.data.messageCount} />
         {node.data.isEmpty ? (
           <div className="story-route-viewer-inspector-alert">Empty chat</div>

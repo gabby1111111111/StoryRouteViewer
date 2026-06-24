@@ -113,7 +113,10 @@ assert.deepEqual(
 const emptyChatEnd = chatEnds.find((node) => node.data.fileName === 'D.jsonl');
 assert.ok(emptyChatEnd, 'D should have a ChatEndNode');
 assert.equal(emptyChatEnd.data.isEmpty, true, 'D should be marked as Empty Chat');
+assert.equal(emptyChatEnd.data.graphReason, 'empty_chat', 'empty chat should expose graph reason');
+assert.equal(emptyChatEnd.data.graphReasonLabel, 'Empty chat', 'empty chat should expose readable graph reason');
 assert.ok(edges.has(`root->${emptyChatEnd.id}`), 'D Empty ChatEndNode should connect directly from root');
+assert.equal(graph.debug.unmergedReasons.empty_chat, 1, 'empty chat should be counted in unmerged debug reasons');
 
 for (const edge of graph.edges) {
   assert.ok(nodesById.has(edge.source), `edge source should exist: ${edge.source}`);
@@ -132,11 +135,15 @@ assert.equal(shortGraph.debug.rejectedBranchCount, 1, 'short fixture should reje
 assert.equal(shortGraph.debug.rejectedReasons.prefix_text_too_short, 1, 'short fixture should reject by prefix_text_too_short');
 assert.equal(shortGraph.debug.candidates[0].status, 'rejected', 'short fixture should expose rejected candidate status');
 assert.equal(shortGraph.debug.candidates[0].reason, 'prefix_text_too_short', 'short fixture should expose rejected reason');
+assert.equal(shortGraph.debug.unmergedReasons.prefix_text_too_short, 3, 'short rejected chats should be counted by rejection reason');
 assert.deepEqual(
   shortGraph.debug.candidates[0].fileNames,
   ['short-a.jsonl', 'short-b.jsonl', 'short-c.jsonl'],
   'short rejected candidate should expose file names',
 );
+const shortRouteSegments = shortGraph.nodes.filter((node) => node.type === 'segment');
+assert.equal(shortRouteSegments[0].data.graphReason, 'prefix_text_too_short', 'short rejected route should expose graph reason on SegmentNode');
+assert.equal(shortRouteSegments[0].data.graphReasonLabel, 'Rejected: prefix text too short', 'short rejected route should expose readable graph reason');
 
 const oneMessageGraph = buildGraph(oneMessagePrefixFixtureCorpus);
 assert.equal(oneMessageGraph.nodes.filter((node) => node.type === 'branch').length, 0, 'one-message prefix should not create a BranchNode');
@@ -167,6 +174,7 @@ assert.equal(branchFamilyLooseGraph.debug.candidates[0].sharedPrefixMessages, 3,
 const unrelatedLooseGraph = buildGraph(unrelatedLoosePrefixFixtureCorpus);
 assert.equal(unrelatedLooseGraph.nodes.filter((node) => node.type === 'branch').length, 0, 'unrelated files with loose-only matching text should not merge');
 assert.equal(unrelatedLooseGraph.debug.candidateBranchCount, 0, 'unrelated loose-only files should not become branch candidates');
+assert.equal(unrelatedLooseGraph.debug.unmergedReasons.single_route_group, 2, 'unrelated independent files should expose single-route unmerged reasons');
 
 const metadataParentGraph = buildGraph(metadataParentFixtureCorpus);
 const metadataParentBranches = metadataParentGraph.nodes.filter((node) => node.type === 'branch');

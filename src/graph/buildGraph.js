@@ -46,6 +46,7 @@ export function buildGraph(corpus) {
             route,
             column: 1,
             row: rowIndex,
+            graphReason: 'empty_chat',
           });
           rowIndex += 1;
         });
@@ -80,14 +81,28 @@ function createGraphBuilder(root) {
       metadata_only: 0,
     },
     candidates: [],
+    unmergedRouteCount: 0,
+    unmergedReasons: {},
+    unmergedRoutes: [],
   };
   let segmentCount = 0;
   let branchCount = 0;
+  const recordedUnmergedRoutes = new Set();
 
   function addRouteTree({ parentId, routes, depth, column, rowStart, routeLane = null, incomingEdgeLabel = '', branchSource = 'text_prefix', branchMeta = null }) {
     if (routes.length === 0) return;
     if (routes.length === 1) {
-      addSingleRoute({ parentId, route: routes[0], depth, column, row: rowStart, routeLane, incomingEdgeLabel });
+      addSingleRoute({
+        parentId,
+        route: routes[0],
+        depth,
+        column,
+        row: rowStart,
+        routeLane,
+        incomingEdgeLabel,
+        graphReason: routeLane ? '' : 'single_route_group',
+        graphReasonSource: branchSource,
+      });
       return;
     }
 
@@ -111,7 +126,15 @@ function createGraphBuilder(root) {
           branchSource,
           branchMeta,
         });
-        addIndependentRoutes({ parentId, routes, depth, column, rowStart });
+        addIndependentRoutes({
+          parentId,
+          routes,
+          depth,
+          column,
+          rowStart,
+          graphReason: validation.reason,
+          graphReasonSource: branchSource,
+        });
         return;
       }
 
@@ -146,7 +169,15 @@ function createGraphBuilder(root) {
 
     const onlyGroup = nextGroups[0];
     if (!onlyGroup || onlyGroup.key === CHAT_END_KEY || sharedLength === 0) {
-      addIndependentRoutes({ parentId, routes, depth, column, rowStart });
+      addIndependentRoutes({
+        parentId,
+        routes,
+        depth,
+        column,
+        rowStart,
+        graphReason: getIndependentRouteReason({ sharedLength, onlyGroup }),
+        graphReasonSource: branchSource,
+      });
       return;
     }
 
@@ -230,7 +261,7 @@ function createGraphBuilder(root) {
     });
   }
 
-  function addIndependentRoutes({ parentId, routes, depth, column, rowStart }) {
+  function addIndependentRoutes({ parentId, routes, depth, column, rowStart, graphReason = '', graphReasonSource = '' }) {
     routes.forEach((route, index) => {
       addSingleRoute({
         parentId,
@@ -238,6 +269,8 @@ function createGraphBuilder(root) {
         depth,
         column,
         row: rowStart + index,
+        graphReason,
+        graphReasonSource,
       });
     });
   }
@@ -270,10 +303,14 @@ function createGraphBuilder(root) {
     });
   }
 
-  function addSingleRoute({ parentId, route, depth, column, row, routeLane = null, incomingEdgeLabel = '' }) {
+  function addSingleRoute({ parentId, route, depth, column, row, routeLane = null, incomingEdgeLabel = '', graphReason = '', graphReasonSource = '' }) {
     if (depth >= route.messages.length) {
-      addChatEnd({ parentId, route, column, row, routeLane, incomingEdgeLabel });
+      addChatEnd({ parentId, route, column, row, routeLane, incomingEdgeLabel, graphReason, graphReasonSource });
       return;
+    }
+
+    if (graphReason) {
+      recordUnmergedRoute({ route, depth, reason: graphReason, source: graphReasonSource });
     }
 
     const segment = createSegmentNode({
@@ -288,6 +325,7 @@ function createGraphBuilder(root) {
       x: getColumnX(column),
       y: getRowY(row),
       routeLane,
+      graphReason,
     });
     segmentCount += 1;
 
@@ -304,7 +342,11 @@ function createGraphBuilder(root) {
     });
   }
 
-  function addChatEnd({ parentId, route, column, row, routeLane = null, incomingEdgeLabel = '' }) {
+  function addChatEnd({ parentId, route, column, row, routeLane = null, incomingEdgeLabel = '', graphReason = '', graphReasonSource = '' }) {
+    if (graphReason) {
+      recordUnmergedRoute({ route, depth: route.messages.length, reason: graphReason, source: graphReasonSource });
+    }
+
     const chatEnd = createChatEndNode({
       index: route.index,
       fileName: route.fileName,
@@ -312,6 +354,7 @@ function createGraphBuilder(root) {
       x: getColumnX(column),
       y: getRowY(row),
       routeLane,
+      graphReason,
     });
 
     nodes.push(chatEnd);
@@ -341,9 +384,40 @@ function createGraphBuilder(root) {
           samples: candidate.prefixSamples.map((sample) => sample.summary).join(' || '),
         })));
       }
+      if (debug.unmergedRoutes.length > 0) {
+        console.info('[Story Route Viewer] Unmerged route debug', {
+          unmergedRouteCount: debug.unmergedRouteCount,
+          unmergedReasons: debug.unmergedReasons,
+        });
+        console.table(debug.unmergedRoutes.map((route) => ({
+          fileName: route.fileName,
+          reason: route.reason,
+          label: route.label,
+          source: route.source,
+          depth: route.depth,
+          messageCount: route.messageCount,
+        })));
+      }
       return graph;
     },
   };
+
+  function recordUnmergedRoute({ route, depth, reason, source }) {
+    const key = `${route.fileName}::${depth}::${reason}`;
+    if (recordedUnmergedRoutes.has(key)) return;
+    recordedUnmergedRoutes.add(key);
+
+    debug.unmergedRouteCount += 1;
+    debug.unmergedReasons[reason] = (debug.unmergedReasons[reason] || 0) + 1;
+    debug.unmergedRoutes.push({
+      fileName: route.fileName,
+      reason,
+      label: getGraphReasonLabel(reason),
+      source,
+      depth,
+      messageCount: route.messages.length,
+    });
+  }
 }
 
 function normalizeRoute(chat, index) {
@@ -728,6 +802,29 @@ function validateSharedPrefix(messages, startIndex, length) {
   return { accepted: true, textLength, preview };
 }
 
+function getIndependentRouteReason({ sharedLength, onlyGroup }) {
+  if (sharedLength === 0) return 'no_shared_prefix';
+  if (!onlyGroup) return 'no_next_message_group';
+  if (onlyGroup.key === CHAT_END_KEY) return 'same_until_chat_end';
+  return 'no_divergent_next_message';
+}
+
+function getGraphReasonLabel(reason) {
+  if (!reason) return '';
+  const labels = {
+    empty_chat: 'Empty chat',
+    single_route_group: 'No sibling route',
+    no_shared_prefix: 'No shared prefix',
+    no_next_message_group: 'No next message group',
+    same_until_chat_end: 'Same until chat end',
+    no_divergent_next_message: 'No divergent next message',
+    prefix_too_short: 'Rejected: prefix too short',
+    prefix_text_too_short: 'Rejected: prefix text too short',
+    metadata_only: 'Rejected: metadata only',
+  };
+  return labels[reason] || reason;
+}
+
 function isStoryContentMessage(message) {
   if (!hasMessageText(message)) return false;
   if (message?.role === 'system') return false;
@@ -766,7 +863,7 @@ function makePrefixSamples(messages, startIndex, length) {
   });
 }
 
-function createSegmentNode({ id, typeLabel, title, detail, fileName, chatFiles, messages, startIndex, endIndex, x, y, routeLane }) {
+function createSegmentNode({ id, typeLabel, title, detail, fileName, chatFiles, messages, startIndex, endIndex, x, y, routeLane, graphReason = '' }) {
   const messageCount = Math.max(0, endIndex - startIndex + 1);
   const targetFileName = Array.isArray(chatFiles) && chatFiles.length > 0 ? chatFiles[0] : fileName;
 
@@ -787,6 +884,8 @@ function createSegmentNode({ id, typeLabel, title, detail, fileName, chatFiles, 
       fileName,
       chatFiles,
       routeLane,
+      graphReason,
+      graphReasonLabel: getGraphReasonLabel(graphReason),
       startIndex,
       endIndex,
       messageCount,
@@ -868,7 +967,7 @@ function createBranchNode({ id, routes, depth, nextGroups, branchSource = 'text_
   };
 }
 
-function createChatEndNode({ index, fileName, messages, x, y, routeLane }) {
+function createChatEndNode({ index, fileName, messages, x, y, routeLane, graphReason = '' }) {
   const messageCount = messages.length;
   const isEmpty = messageCount === 0;
   const lastMessageIndex = isEmpty ? null : messageCount - 1;
@@ -889,6 +988,8 @@ function createChatEndNode({ index, fileName, messages, x, y, routeLane }) {
       messageCount,
       isEmpty,
       routeLane,
+      graphReason,
+      graphReasonLabel: getGraphReasonLabel(graphReason),
       inspectorType: 'chatEnd',
       navigationTarget: createNavigationTarget({
         fileName,
