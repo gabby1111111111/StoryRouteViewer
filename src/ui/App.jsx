@@ -23,6 +23,12 @@ const routeFilters = [
   { key: 'empty', label: 'Empty' },
 ];
 
+const routeSorts = [
+  { key: 'original', label: 'Original' },
+  { key: 'name', label: 'Name' },
+  { key: 'messages', label: 'Messages' },
+];
+
 export function App({ status, corpus, graph, error, onClose, onRefresh }) {
   const flowShellRef = useRef(null);
   const flowInstanceRef = useRef(null);
@@ -272,15 +278,17 @@ function StatsPanel({ corpus, graphStats }) {
 function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigate }) {
   const [query, setQuery] = useState('');
   const [routeKind, setRouteKind] = useState('all');
+  const [sortMode, setSortMode] = useState('original');
   const routeKindCounts = useMemo(() => getRouteKindCounts(routes), [routes]);
   const filteredRoutes = useMemo(() => filterRoutes(routes, query, routeKind), [routes, query, routeKind]);
+  const visibleRoutes = useMemo(() => sortRoutes(filteredRoutes, sortMode), [filteredRoutes, sortMode]);
   const hasActiveFilter = query.trim() || routeKind !== 'all';
 
   return (
     <aside className="story-route-viewer-route-list">
       <div className="story-route-viewer-route-list-head">
         <h3>Routes</h3>
-        <span>{hasActiveFilter ? `${filteredRoutes.length}/${routes.length}` : routes.length}</span>
+        <span>{hasActiveFilter ? `${visibleRoutes.length}/${routes.length}` : routes.length}</span>
       </div>
       <div className="story-route-viewer-route-search">
         <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
@@ -310,13 +318,23 @@ function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigat
           </button>
         ))}
       </div>
+      <label className="story-route-viewer-route-sort">
+        <span>Sort</span>
+        <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+          {routeSorts.map((sort) => (
+            <option value={sort.key} key={sort.key}>
+              {sort.label}
+            </option>
+          ))}
+        </select>
+      </label>
       {routes.length === 0 ? (
         <p className="story-route-viewer-route-list-empty">No routes yet.</p>
-      ) : filteredRoutes.length === 0 ? (
+      ) : visibleRoutes.length === 0 ? (
         <p className="story-route-viewer-route-list-empty">No matching routes.</p>
       ) : (
         <div className="story-route-viewer-route-list-items">
-          {filteredRoutes.map((route) => (
+          {visibleRoutes.map((route) => (
             <div
               className={`story-route-viewer-route-list-item${route.key === selectedRouteKey ? ' is-selected' : ''}`}
               key={route.key}
@@ -682,6 +700,17 @@ function filterRoutes(routes, query, routeKind = 'all') {
       String(route.messageCount ?? ''),
     ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery));
   });
+}
+
+function sortRoutes(routes, sortMode) {
+  const sorted = [...routes];
+  if (sortMode === 'name') {
+    sorted.sort((a, b) => String(a.fileName || '').localeCompare(String(b.fileName || ''), undefined, { numeric: true }));
+  }
+  if (sortMode === 'messages') {
+    sorted.sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0) || String(a.fileName || '').localeCompare(String(b.fileName || ''), undefined, { numeric: true }));
+  }
+  return sorted;
 }
 
 function getGraphStats(graph, routeItems) {
