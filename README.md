@@ -1,5 +1,7 @@
 # Story Route Viewer
 
+Language: English | [简体中文](README.zh-CN.md)
+
 Story Route Viewer is a SillyTavern frontend extension for turning the current character or group chat corpus into a story route map.
 
 The goal is not to show chat files as a file manager. The goal is closer to a visual novel route map or a Detroit: Become Human style flowchart: find old branch points, understand route options, and jump back into the right chat quickly.
@@ -168,4 +170,3 @@ After a build/sync in SillyTavern:
 - Branch detection depends on available chat files and metadata quality.
 - Layout is functional but not yet a polished galgame route-map layout.
 - Large corpora may still need future layout and filtering work.
-
