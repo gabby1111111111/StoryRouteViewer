@@ -305,7 +305,7 @@
 
 .story-route-viewer-route-sort {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-height: 30px;
@@ -326,6 +326,24 @@
   color: var(--srv-text);
   font-size: 12px !important;
   line-height: 1;
+}
+
+.story-route-viewer-route-sort button {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--srv-border);
+  border-radius: var(--horae-radius-sm, 6px);
+  background: var(--srv-bg-secondary);
+  color: var(--srv-muted);
+  cursor: pointer;
+}
+
+.story-route-viewer-route-sort button:hover {
+  background: var(--srv-bg-hover);
+  color: var(--srv-text);
 }
 
 .story-route-viewer-route-list-items {

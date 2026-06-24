@@ -279,10 +279,16 @@ function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigat
   const [query, setQuery] = useState('');
   const [routeKind, setRouteKind] = useState('all');
   const [sortMode, setSortMode] = useState('original');
+  const [sortDirection, setSortDirection] = useState('asc');
   const routeKindCounts = useMemo(() => getRouteKindCounts(routes), [routes]);
   const filteredRoutes = useMemo(() => filterRoutes(routes, query, routeKind), [routes, query, routeKind]);
-  const visibleRoutes = useMemo(() => sortRoutes(filteredRoutes, sortMode), [filteredRoutes, sortMode]);
+  const visibleRoutes = useMemo(() => sortRoutes(filteredRoutes, sortMode, sortDirection), [filteredRoutes, sortMode, sortDirection]);
   const hasActiveFilter = query.trim() || routeKind !== 'all';
+  const handleSortModeChange = (event) => {
+    const nextSortMode = event.target.value;
+    setSortMode(nextSortMode);
+    setSortDirection(nextSortMode === 'messages' ? 'desc' : 'asc');
+  };
 
   return (
     <aside className="story-route-viewer-route-list">
@@ -320,13 +326,20 @@ function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigat
       </div>
       <label className="story-route-viewer-route-sort">
         <span>Sort</span>
-        <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+        <select value={sortMode} onChange={handleSortModeChange}>
           {routeSorts.map((sort) => (
             <option value={sort.key} key={sort.key}>
               {sort.label}
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          title={sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+          onClick={() => setSortDirection((direction) => (direction === 'asc' ? 'desc' : 'asc'))}
+        >
+          <i className={`fa-solid ${sortDirection === 'asc' ? 'fa-arrow-down-a-z' : 'fa-arrow-down-z-a'}`} aria-hidden="true" />
+        </button>
       </label>
       {routes.length === 0 ? (
         <p className="story-route-viewer-route-list-empty">No routes yet.</p>
@@ -702,13 +715,16 @@ function filterRoutes(routes, query, routeKind = 'all') {
   });
 }
 
-function sortRoutes(routes, sortMode) {
+function sortRoutes(routes, sortMode, sortDirection = 'asc') {
   const sorted = [...routes];
   if (sortMode === 'name') {
     sorted.sort((a, b) => String(a.fileName || '').localeCompare(String(b.fileName || ''), undefined, { numeric: true }));
   }
   if (sortMode === 'messages') {
-    sorted.sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0) || String(a.fileName || '').localeCompare(String(b.fileName || ''), undefined, { numeric: true }));
+    sorted.sort((a, b) => (a.messageCount || 0) - (b.messageCount || 0) || String(a.fileName || '').localeCompare(String(b.fileName || ''), undefined, { numeric: true }));
+  }
+  if (sortDirection === 'desc') {
+    sorted.reverse();
   }
   return sorted;
 }
