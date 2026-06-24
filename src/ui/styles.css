@@ -117,13 +117,14 @@
 
 .story-route-viewer-stats {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--srv-border);
 }
 
 .story-route-viewer-stats div {
-  min-width: 120px;
+  min-width: 104px;
   padding: 8px 10px;
   border: 1px solid var(--srv-border);
   border-radius: var(--horae-radius-sm, 6px);

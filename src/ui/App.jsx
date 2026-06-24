@@ -29,6 +29,7 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
     [graph, selectedNodeId],
   );
   const routeItems = useMemo(() => getRouteItems(graph), [graph]);
+  const graphStats = useMemo(() => getGraphStats(graph, routeItems), [graph, routeItems]);
   const selectedRouteItem = useMemo(
     () => routeItems.find((item) => item.key === selectedRouteKey) || null,
     [routeItems, selectedRouteKey],
@@ -144,7 +145,7 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
         {status === 'error' && <StateMessage tone="error" text={error || '读取失败'} />}
         {status === 'ready' && (
           <>
-            <StatsPanel corpus={corpus} />
+            <StatsPanel corpus={corpus} graphStats={graphStats} />
             <div className="story-route-viewer-workspace">
               <RouteList
                 routes={routeItems}
@@ -212,7 +213,7 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
   );
 }
 
-function StatsPanel({ corpus }) {
+function StatsPanel({ corpus, graphStats }) {
   return (
     <section className="story-route-viewer-stats">
       <div>
@@ -226,6 +227,14 @@ function StatsPanel({ corpus }) {
       <div>
         <span>Empty</span>
         <strong>{corpus.emptyChats?.length || 0}</strong>
+      </div>
+      <div>
+        <span>Branches</span>
+        <strong>{graphStats.branchCount}</strong>
+      </div>
+      <div>
+        <span>Routes</span>
+        <strong>{graphStats.routeCount}</strong>
       </div>
     </section>
   );
@@ -542,6 +551,14 @@ function filterRoutes(routes, query) {
     route.chatEnd,
     String(route.messageCount ?? ''),
   ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)));
+}
+
+function getGraphStats(graph, routeItems) {
+  const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
+  return {
+    branchCount: nodes.filter((node) => node.type === 'branch').length,
+    routeCount: Array.isArray(routeItems) ? routeItems.length : 0,
+  };
 }
 
 function formatNavigationSuccess(result) {
