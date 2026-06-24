@@ -153,7 +153,7 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
                 isNavigating={isNavigating}
                 onSelect={(route) => {
                   setSelectedRouteKey(route.key);
-                  setSelectedNodeId(route.branchId);
+                  setSelectedNodeId(route.anchorNodeId || route.branchId);
                   setNavigationError('');
                 }}
                 onNavigate={(route) => {
@@ -267,7 +267,7 @@ function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigat
         )}
       </div>
       {routes.length === 0 ? (
-        <p className="story-route-viewer-route-list-empty">No Branch routes yet.</p>
+        <p className="story-route-viewer-route-list-empty">No routes yet.</p>
       ) : filteredRoutes.length === 0 ? (
         <p className="story-route-viewer-route-list-empty">No matching routes.</p>
       ) : (
@@ -541,6 +541,7 @@ function isNodeInSelectedBranch(node, selectedBranchFiles) {
 
 function isNodeInSelectedRoute(node, route) {
   if (!route) return false;
+  if (node.id === route.anchorNodeId) return true;
   if (node.id === route.branchId) return true;
   if (node.data?.fileName === route.fileName) return true;
   if (Array.isArray(node.data?.chatFiles)) {
@@ -550,13 +551,27 @@ function isNodeInSelectedRoute(node, route) {
 }
 
 function getRouteItems(graph) {
+  const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
   const seen = new Set();
-  return (graph?.nodes || [])
+  const branchFileNames = new Set();
+  const segmentByFileName = new Map();
+
+  nodes
+    .filter((node) => node.data?.inspectorType === 'segment' && node.data?.fileName)
+    .forEach((node) => {
+      if (!segmentByFileName.has(node.data.fileName)) {
+        segmentByFileName.set(node.data.fileName, node);
+      }
+    });
+
+  const branchRoutes = nodes
     .filter((node) => node.data?.inspectorType === 'branch')
     .flatMap((node) =>
       (node.data.branchRoutes || []).map((route, index) => ({
         key: `${node.id}:${route.routeLabel || index}:${route.fileName}`,
         branchId: node.id,
+        anchorNodeId: node.id,
+        routeKind: 'branch',
         routeLabel: route.routeLabel || `R${index + 1}`,
         fileName: route.fileName,
         nextPreview: route.nextPreview,
@@ -564,7 +579,31 @@ function getRouteItems(graph) {
         chatEnd: route.chatEnd,
         navigationTarget: route.navigationTarget,
       })),
-    )
+    );
+
+  branchRoutes.forEach((route) => branchFileNames.add(route.fileName));
+
+  const independentRoutes = nodes
+    .filter((node) => node.data?.inspectorType === 'chatEnd' && !branchFileNames.has(node.data.fileName))
+    .map((node) => {
+      const segment = segmentByFileName.get(node.data.fileName);
+      const isEmpty = Boolean(node.data.isEmpty);
+
+      return {
+        key: `independent:${node.data.fileName}`,
+        branchId: '',
+        anchorNodeId: segment?.id || node.id,
+        routeKind: isEmpty ? 'empty' : 'independent',
+        routeLabel: isEmpty ? 'Empty' : 'Chat',
+        fileName: node.data.fileName,
+        nextPreview: isEmpty ? 'Empty chat' : segment?.data?.firstPreview || node.data.firstPreview,
+        messageCount: node.data.messageCount,
+        chatEnd: isEmpty ? 'Empty Chat' : `${node.data.messageCount} messages`,
+        navigationTarget: segment?.data?.navigationTarget || node.data.navigationTarget,
+      };
+    });
+
+  return [...branchRoutes, ...independentRoutes]
     .filter((route) => {
       if (seen.has(route.key)) return false;
       seen.add(route.key);
