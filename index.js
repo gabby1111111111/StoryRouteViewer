@@ -1,9 +1,12 @@
 const DIST_ENTRY = '/scripts/extensions/third-party/StoryRouteViewer/dist/index.iife.js';
 const AUTO_OPEN_ON_LOAD = true;
 const AUTO_OPEN_DELAY_MS = 2500;
+const AUTO_OPEN_RETRY_MS = 3000;
+const AUTO_OPEN_MAX_ATTEMPTS = 10;
 
 let appLoadPromise = null;
-let didAutoOpen = false;
+let autoOpenStarted = false;
+let autoOpenSucceeded = false;
 
 console.warn('[Story Route Viewer] root entry loaded');
 ensureBrowserProcessShim();
@@ -58,25 +61,41 @@ function appendMenu(container) {
 }
 
 function scheduleDebugAutoOpen() {
-  if (!AUTO_OPEN_ON_LOAD || didAutoOpen) return;
-  didAutoOpen = true;
+  if (!AUTO_OPEN_ON_LOAD || autoOpenStarted) return;
+  autoOpenStarted = true;
   setTimeout(() => {
-    console.warn('[Story Route Viewer] debug auto-open');
-    openStoryRouteViewer({ auto: true });
+    runDebugAutoOpenAttempts();
   }, AUTO_OPEN_DELAY_MS);
+}
+
+async function runDebugAutoOpenAttempts() {
+  for (let attempt = 1; attempt <= AUTO_OPEN_MAX_ATTEMPTS; attempt += 1) {
+    if (autoOpenSucceeded) return;
+
+    console.warn(`[Story Route Viewer] debug auto-open attempt ${attempt}/${AUTO_OPEN_MAX_ATTEMPTS}`);
+    const opened = await openStoryRouteViewer({ auto: true });
+    if (opened) {
+      autoOpenSucceeded = true;
+      return;
+    }
+
+    await delay(AUTO_OPEN_RETRY_MS);
+  }
+
+  console.warn('[Story Route Viewer] debug auto-open stopped: no active character or group chat was ready.');
 }
 
 async function openStoryRouteViewer(options = {}) {
   try {
     await loadApp();
     if (window.StoryRouteViewer?.open) {
-      window.StoryRouteViewer.open(options);
-      return;
+      return await window.StoryRouteViewer.open(options);
     }
     throw new Error('StoryRouteViewer.open was not registered');
   } catch (error) {
     console.error('[Story Route Viewer] failed to open', error);
     showFallbackError(error);
+    return false;
   }
 }
 

@@ -84,14 +84,14 @@ function ensureModal() {
 
 function openModal(options = {}) {
   if (options?.auto) {
-    openAutoModal();
-    return;
+    return openAutoModal();
   }
 
   ensureModal();
   modalElement.classList.add('is-open');
   renderLoading();
   refreshData({ waitForContext: true });
+  return true;
 }
 
 function closeModal() {
@@ -117,13 +117,15 @@ async function openAutoModal() {
     ensureModal();
     modalElement.classList.add('is-open');
     renderApp({ status: 'ready', corpus, graph });
+    return true;
   } catch (error) {
     if (isMissingContextError(error)) {
       console.info('[Story Route Viewer] Auto-open skipped: no active character or group chat.');
-      return;
+      return false;
     }
 
     console.error('[Story Route Viewer] Auto-open failed', error);
+    return false;
   }
 }
 
