@@ -22,30 +22,39 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
   const [navigationError, setNavigationError] = useState('');
   const [isNavigating, setIsNavigating] = useState(false);
   const [flowResizeVersion, setFlowResizeVersion] = useState(0);
+  const [selectedRouteKey, setSelectedRouteKey] = useState('');
   const selectedNode = useMemo(
     () => graph?.nodes?.find((node) => node.id === selectedNodeId) || null,
     [graph, selectedNodeId],
   );
+  const routeItems = useMemo(() => getRouteItems(graph), [graph]);
+  const selectedRouteItem = useMemo(
+    () => routeItems.find((item) => item.key === selectedRouteKey) || null,
+    [routeItems, selectedRouteKey],
+  );
   const selectedBranchFiles = useMemo(() => {
+    if (selectedRouteItem) return new Set();
     if (selectedNode?.data?.inspectorType !== 'branch') return new Set();
     return new Set((selectedNode.data.branchRoutes || []).map((route) => route.fileName));
-  }, [selectedNode]);
+  }, [selectedNode, selectedRouteItem]);
   const displayNodes = useMemo(
     () =>
       (graph?.nodes || []).map((node) => ({
         ...node,
-        selected: node.id === selectedNodeId || isNodeInSelectedBranch(node, selectedBranchFiles),
+        selected: node.id === selectedNodeId || isNodeInSelectedBranch(node, selectedBranchFiles) || isNodeInSelectedRoute(node, selectedRouteItem),
         data: {
           ...node.data,
           isSelected: node.id === selectedNodeId,
           isBranchRelated: isNodeInSelectedBranch(node, selectedBranchFiles),
+          isRouteListSelected: isNodeInSelectedRoute(node, selectedRouteItem),
         },
       })),
-    [graph, selectedNodeId, selectedBranchFiles],
+    [graph, selectedNodeId, selectedBranchFiles, selectedRouteItem],
   );
 
   useEffect(() => {
     setSelectedNodeId(null);
+    setSelectedRouteKey('');
     setNavigationError('');
   }, [graph]);
 
@@ -131,6 +140,26 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
           <>
             <StatsPanel corpus={corpus} />
             <div className="story-route-viewer-workspace">
+              <RouteList
+                routes={routeItems}
+                selectedRouteKey={selectedRouteKey}
+                isNavigating={isNavigating}
+                onSelect={(route) => {
+                  setSelectedRouteKey(route.key);
+                  setSelectedNodeId(route.branchId);
+                  setNavigationError('');
+                }}
+                onNavigate={(route) => {
+                  setSelectedRouteKey(route.key);
+                  navigateToNode({
+                    id: route.key,
+                    data: {
+                      routeListKey: route.key,
+                      navigationTarget: route.navigationTarget,
+                    },
+                  });
+                }}
+              />
               <div className="story-route-viewer-flow" ref={flowShellRef}>
                 <ReactFlow
                   key={`story-route-flow-${flowResizeVersion}`}
@@ -147,7 +176,10 @@ export function App({ status, corpus, graph, error, onClose, onRefresh }) {
                   minZoom={0.35}
                   maxZoom={1.5}
                   proOptions={{ hideAttribution: true }}
-                  onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+                  onNodeClick={(_, node) => {
+                    setSelectedRouteKey('');
+                    setSelectedNodeId(node.id);
+                  }}
                   onNodeDoubleClick={(_, node) => navigateToNode(node)}
                 >
                   <Background gap={24} size={1} />
@@ -192,9 +224,47 @@ function StatsPanel({ corpus }) {
   );
 }
 
+function RouteList({ routes, selectedRouteKey, isNavigating, onSelect, onNavigate }) {
+  return (
+    <aside className="story-route-viewer-route-list">
+      <div className="story-route-viewer-route-list-head">
+        <h3>Routes</h3>
+        <span>{routes.length}</span>
+      </div>
+      {routes.length === 0 ? (
+        <p className="story-route-viewer-route-list-empty">No Branch routes yet.</p>
+      ) : (
+        <div className="story-route-viewer-route-list-items">
+          {routes.map((route) => (
+            <div
+              className={`story-route-viewer-route-list-item${route.key === selectedRouteKey ? ' is-selected' : ''}`}
+              key={route.key}
+            >
+              <button type="button" className="story-route-viewer-route-list-main" onClick={() => onSelect?.(route)}>
+                <span className="story-route-viewer-route-chip">{route.routeLabel}</span>
+                <strong>{route.fileName}</strong>
+                <em>{route.messageCount} messages</em>
+                <span className="story-route-viewer-route-list-preview">{route.nextPreview || '-'}</span>
+              </button>
+              <button
+                className="menu_button story-route-viewer-route-list-jump"
+                type="button"
+                disabled={isNavigating}
+                onClick={() => onNavigate?.(route)}
+              >
+                {isNavigating ? 'Jumping...' : 'Jump'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </aside>
+  );
+}
+
 function RouteNode({ data, type }) {
   return (
-    <div className={`story-route-viewer-node ${type}${data.isEmpty ? ' is-empty' : ''}${data.isSelected ? ' is-selected' : ''}${data.isBranchRelated ? ' is-branch-related' : ''}`}>
+    <div className={`story-route-viewer-node ${type}${data.isEmpty ? ' is-empty' : ''}${data.isSelected ? ' is-selected' : ''}${data.isBranchRelated ? ' is-branch-related' : ''}${data.isRouteListSelected ? ' is-route-list-selected' : ''}`}>
       {type !== 'root' && (
         <Handle className="story-route-viewer-handle" type="target" position={Position.Left} />
       )}
@@ -391,6 +461,39 @@ function isNodeInSelectedBranch(node, selectedBranchFiles) {
     return node.data.chatFiles.some((fileName) => selectedBranchFiles.has(fileName));
   }
   return false;
+}
+
+function isNodeInSelectedRoute(node, route) {
+  if (!route) return false;
+  if (node.id === route.branchId) return true;
+  if (node.data?.fileName === route.fileName) return true;
+  if (Array.isArray(node.data?.chatFiles)) {
+    return node.data.chatFiles.includes(route.fileName);
+  }
+  return false;
+}
+
+function getRouteItems(graph) {
+  const seen = new Set();
+  return (graph?.nodes || [])
+    .filter((node) => node.data?.inspectorType === 'branch')
+    .flatMap((node) =>
+      (node.data.branchRoutes || []).map((route, index) => ({
+        key: `${node.id}:${route.routeLabel || index}:${route.fileName}`,
+        branchId: node.id,
+        routeLabel: route.routeLabel || `R${index + 1}`,
+        fileName: route.fileName,
+        nextPreview: route.nextPreview,
+        messageCount: route.messageCount,
+        chatEnd: route.chatEnd,
+        navigationTarget: route.navigationTarget,
+      })),
+    )
+    .filter((route) => {
+      if (seen.has(route.key)) return false;
+      seen.add(route.key);
+      return true;
+    });
 }
 
 function getSubtitle(status, corpus) {
