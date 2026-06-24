@@ -4,6 +4,7 @@ import {
   branchFamilyLoosePrefixFixtureCorpus,
   metadataBranchLinksFixtureCorpus,
   metadataMissingParentFixtureCorpus,
+  metadataNestedBranchLinksFixtureCorpus,
   metadataParentFixtureCorpus,
   metadataOnlyPrefixFixtureCorpus,
   namedSystemFlagPrefixFixtureCorpus,
@@ -209,6 +210,23 @@ assert.equal(
   metadataBranchLinksGraph.debug.candidates[0].stBranchPoint,
   'Linked Parent.jsonl #1',
   'ST extra.branches candidate debug should expose parent message index',
+);
+
+const metadataNestedBranchLinksGraph = buildGraph(metadataNestedBranchLinksFixtureCorpus);
+const metadataNestedBranchLinksBranches = metadataNestedBranchLinksGraph.nodes.filter((node) => node.type === 'branch');
+assert.equal(metadataNestedBranchLinksBranches.length, 2, 'nested ST extra.branches links should create two BranchNodes');
+assert.deepEqual(
+  metadataNestedBranchLinksBranches.map((node) => node.data.stBranchPoint),
+  ['Nested Parent.jsonl #1', 'Nested Alpha.jsonl #3'],
+  'nested ST BranchNodes should target their own parent message index',
+);
+assert.deepEqual(
+  metadataNestedBranchLinksBranches.map((node) => node.data.navigationTarget),
+  [
+    { chatId: 'Nested Parent', fileName: 'Nested Parent.jsonl', messageIndex: 1, fallbackMessageIndex: 0 },
+    { chatId: 'Nested Alpha', fileName: 'Nested Alpha.jsonl', messageIndex: 3, fallbackMessageIndex: 0 },
+  ],
+  'nested ST BranchNodes should jump to their own parent chat messages',
 );
 
 const metadataMissingParentGraph = buildGraph(metadataMissingParentFixtureCorpus);

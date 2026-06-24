@@ -541,15 +541,17 @@ function createMetadataBranchMeta(routes) {
     });
   });
 
+  const branchPoints = collectMetadataBranchPoints(parentLinks);
   return {
-    branchPoint: selectMetadataBranchPoint(parentLinks),
+    branchPoint: branchPoints[0] || null,
+    branchPoints,
     parentLinks,
     mainChatLinks,
   };
 }
 
-function selectMetadataBranchPoint(parentLinks) {
-  if (!Array.isArray(parentLinks) || parentLinks.length === 0) return null;
+function collectMetadataBranchPoints(parentLinks) {
+  if (!Array.isArray(parentLinks) || parentLinks.length === 0) return [];
 
   const groups = new Map();
   parentLinks.forEach((link) => {
@@ -572,7 +574,7 @@ function selectMetadataBranchPoint(parentLinks) {
   return Array.from(groups.values()).sort((a, b) => {
     if (b.children.length !== a.children.length) return b.children.length - a.children.length;
     return a.messageIndex - b.messageIndex;
-  })[0];
+  });
 }
 
 function makeDebugBranchPoint(branchMeta, routes, branchDepth) {
@@ -582,12 +584,30 @@ function makeDebugBranchPoint(branchMeta, routes, branchDepth) {
 }
 
 function resolveMetadataBranchPoint(branchMeta, routes, branchDepth) {
-  if (branchMeta?.branchPoint) return branchMeta.branchPoint;
+  const explicitPoint = selectExplicitMetadataBranchPoint(branchMeta, routes, branchDepth);
+  if (explicitPoint) return explicitPoint;
 
   const point = inferMainChatBranchPoint(branchMeta, routes, branchDepth);
   if (point) return point;
 
   return null;
+}
+
+function selectExplicitMetadataBranchPoint(branchMeta, routes, branchDepth) {
+  const points = Array.isArray(branchMeta?.branchPoints) ? branchMeta.branchPoints : [];
+  if (points.length === 0 || !Array.isArray(routes) || routes.length === 0) return null;
+
+  const routeFileNames = new Set(routes.map((route) => route.fileName));
+  return points
+    .filter((point) => (
+      routeFileNames.has(point.parentFileName) &&
+      point.children.some((child) => routeFileNames.has(child.fileName)) &&
+      point.messageIndex <= Math.max(0, branchDepth - 1)
+    ))
+    .sort((a, b) => {
+      if (b.messageIndex !== a.messageIndex) return b.messageIndex - a.messageIndex;
+      return b.children.length - a.children.length;
+    })[0] || null;
 }
 
 function inferMainChatBranchPoint(branchMeta, routes, branchDepth) {

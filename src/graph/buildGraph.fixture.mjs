@@ -201,6 +201,38 @@ export const metadataBranchLinksFixtureCorpus = {
   ],
 };
 
+export const metadataNestedBranchLinksFixtureCorpus = {
+  scope: 'character',
+  title: 'Metadata Nested Branch Links Fixture',
+  chatCount: 3,
+  totalMessages: 13,
+  emptyChats: [],
+  chats: [
+    {
+      fileName: 'Nested Parent.jsonl',
+      branchLinks: [
+        { messageIndex: 1, chatName: 'Nested Alpha' },
+      ],
+      messages: [message(m1), branchMessage(m2, ['Nested Alpha']), message('parent route continues')],
+    },
+    {
+      fileName: 'Nested Alpha.jsonl',
+      mainChat: 'Nested Parent',
+      metadata: { main_chat: 'Nested Parent' },
+      branchLinks: [
+        { messageIndex: 3, chatName: 'Nested Beta' },
+      ],
+      messages: [message(m1), message(m2), message(m1), branchMessage(m2, ['Nested Beta']), message('alpha branch continues')],
+    },
+    {
+      fileName: 'Nested Beta.jsonl',
+      mainChat: 'Nested Alpha',
+      metadata: { main_chat: 'Nested Alpha' },
+      messages: [message(m1), message(m2), message(m1), message(m2), message('beta branch continues')],
+    },
+  ],
+};
+
 export const metadataMissingParentFixtureCorpus = {
   scope: 'character',
   title: 'Metadata Missing Parent Fixture',
