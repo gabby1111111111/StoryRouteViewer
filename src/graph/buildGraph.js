@@ -668,6 +668,7 @@ function createBranchNode({ id, routes, depth, nextGroups, x, y }) {
       branchRoutes: routeOptions.flatMap((lane) =>
         lane.fileNames.map((fileName) => {
           const route = routes.find((item) => item.fileName === fileName);
+          const routeMessageIndex = getRouteStartMessageIndex(route, depth);
           return {
             routeLabel: lane.label,
             routeTitle: lane.title,
@@ -675,6 +676,11 @@ function createBranchNode({ id, routes, depth, nextGroups, x, y }) {
             nextPreview: route && depth < route.messages.length ? makeMessagePreview(route.messages[depth], INSPECTOR_PREVIEW_LENGTH) : 'Chat End',
             messageCount: route?.messages.length || 0,
             chatEnd: !route || route.messages.length === 0 ? 'Empty ChatEnd' : `ChatEnd · ${route.messages.length} messages`,
+            navigationTarget: createNavigationTarget({
+              fileName,
+              messageIndex: routeMessageIndex,
+              fallbackMessageIndex: route?.messages.length ? route.messages.length - 1 : null,
+            }),
           };
         }),
       ),
@@ -741,6 +747,12 @@ function createRouteLane(group, groupIndex, optionCount, depth) {
       ? 'Chat End'
       : makeMessagePreview(firstRoute.messages[depth], INSPECTOR_PREVIEW_LENGTH),
   };
+}
+
+function getRouteStartMessageIndex(route, depth) {
+  if (!route || route.messages.length === 0) return null;
+  if (depth < route.messages.length) return depth;
+  return route.messages.length - 1;
 }
 
 function createEdge(id, source, target, options = {}) {

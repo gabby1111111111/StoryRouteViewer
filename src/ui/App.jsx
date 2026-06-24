@@ -289,6 +289,19 @@ function Inspector({ node, navigationError, isNavigating, onNavigate }) {
               </div>
               <span>{route.chatEnd}</span>
               <p>{route.nextPreview || '-'}</p>
+              <button
+                className="menu_button story-route-viewer-branch-jump"
+                type="button"
+                disabled={isNavigating}
+                onClick={() =>
+                  onNavigate?.({
+                    id: `branch-route-${route.fileName}`,
+                    data: { navigationTarget: route.navigationTarget },
+                  })
+                }
+              >
+                {isNavigating ? 'Jumping...' : 'Jump to route'}
+              </button>
             </div>
           ))}
         </div>

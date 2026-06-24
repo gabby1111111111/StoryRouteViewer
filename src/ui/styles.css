@@ -329,6 +329,14 @@
   overflow-wrap: anywhere;
 }
 
+.story-route-viewer-branch-jump {
+  justify-self: start;
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 11px !important;
+  line-height: 1;
+}
+
 .story-route-viewer-state {
   display: flex;
   min-height: 100%;
