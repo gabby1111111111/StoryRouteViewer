@@ -52,10 +52,15 @@ function appendMenu(container) {
       <i class="fa-solid fa-route"></i>
       <span>剧情分叉地图</span>
     </div>
+    <div id="story_route_viewer_timeline_open" class="menu_button story-route-viewer-menu-button">
+      <i class="fa-solid fa-timeline"></i>
+      <span>AI Timeline</span>
+    </div>
   `;
   container.appendChild(entry);
 
   document.getElementById('story_route_viewer_open')?.addEventListener('click', openStoryRouteViewer);
+  document.getElementById('story_route_viewer_timeline_open')?.addEventListener('click', toggleStoryRouteTimeline);
   console.warn('[Story Route Viewer] fallback menu mounted');
   scheduleDebugAutoOpen();
 }
@@ -94,6 +99,20 @@ async function openStoryRouteViewer(options = {}) {
     throw new Error('StoryRouteViewer.open was not registered');
   } catch (error) {
     console.error('[Story Route Viewer] failed to open', error);
+    showFallbackError(error);
+    return false;
+  }
+}
+
+async function toggleStoryRouteTimeline() {
+  try {
+    await loadApp();
+    if (window.StoryRouteViewer?.toggleTimeline) {
+      return await window.StoryRouteViewer.toggleTimeline();
+    }
+    throw new Error('StoryRouteViewer.toggleTimeline was not registered');
+  } catch (error) {
+    console.error('[Story Route Viewer] failed to toggle timeline', error);
     showFallbackError(error);
     return false;
   }

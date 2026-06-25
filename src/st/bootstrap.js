@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { buildGraph } from '../graph/buildGraph.js';
 import { App } from '../ui/App.jsx';
+import { TimelinePanel } from '../ui/TimelinePanel.jsx';
 import { readCurrentChatCorpus } from './corpus.js';
 
 const CONTEXT_RETRY_ATTEMPTS = 24;
@@ -9,12 +10,17 @@ const CONTEXT_RETRY_DELAY_MS = 500;
 
 let root = null;
 let modalElement = null;
+let timelineRoot = null;
+let timelineElement = null;
 
 export function initializeStoryRouteViewer() {
   window.StoryRouteViewer = {
     open: openModal,
     close: closeModal,
     refresh: refreshData,
+    openTimeline,
+    closeTimeline,
+    toggleTimeline,
   };
 
   if (document.readyState === 'loading') {
@@ -55,11 +61,16 @@ function appendMenu(container) {
       <i class="fa-solid fa-route"></i>
       <span>剧情分叉地图</span>
     </div>
+    <div id="story_route_viewer_timeline_open" class="menu_button story-route-viewer-menu-button">
+      <i class="fa-solid fa-timeline"></i>
+      <span>AI Timeline</span>
+    </div>
   `;
 
   container.appendChild(entry);
 
   document.getElementById('story_route_viewer_open')?.addEventListener('click', openModal);
+  document.getElementById('story_route_viewer_timeline_open')?.addEventListener('click', toggleTimeline);
   console.info('[Story Route Viewer] Menu mounted');
 }
 
@@ -96,6 +107,37 @@ function openModal(options = {}) {
 
 function closeModal() {
   modalElement?.classList.remove('is-open');
+}
+
+function ensureTimelinePanel() {
+  if (timelineElement) return timelineElement;
+
+  timelineElement = document.createElement('div');
+  timelineElement.id = 'story_route_viewer_timeline_panel';
+  timelineElement.className = 'story-route-viewer-timeline-host';
+  document.body.appendChild(timelineElement);
+  timelineRoot = createRoot(timelineElement);
+  return timelineElement;
+}
+
+function openTimeline() {
+  ensureTimelinePanel();
+  timelineElement.classList.add('is-open');
+  timelineRoot?.render(React.createElement(TimelinePanel, { onClose: closeTimeline }));
+  return true;
+}
+
+function closeTimeline() {
+  timelineElement?.classList.remove('is-open');
+  timelineRoot?.render(null);
+}
+
+function toggleTimeline() {
+  if (timelineElement?.classList.contains('is-open')) {
+    closeTimeline();
+    return false;
+  }
+  return openTimeline();
 }
 
 async function refreshData({ waitForContext = false } = {}) {
