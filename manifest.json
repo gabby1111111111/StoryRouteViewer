@@ -3,7 +3,7 @@
   "loading_order": 30,
   "requires": [],
   "optional": [],
-  "js": "index.js",
+  "js": "index.js?v=20260625-timeline",
   "css": "style.css",
   "author": "MR / Codex",
   "version": "0.1.0",
