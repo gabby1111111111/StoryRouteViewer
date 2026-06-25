@@ -4,5 +4,7 @@ node_modules/
 *.log
 *.tmp
 *.local
+AGENTS.md
+.memory/
 .DS_Store
 Thumbs.db
