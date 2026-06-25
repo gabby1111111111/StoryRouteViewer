@@ -122,6 +122,7 @@ function ensureTimelinePanel() {
 
 function openTimeline() {
   ensureTimelinePanel();
+  closeModal();
   timelineElement.classList.add('is-open');
   timelineRoot?.render(React.createElement(TimelinePanel, { onClose: closeTimeline }));
   return true;

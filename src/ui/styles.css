@@ -597,7 +597,7 @@
   top: 58px;
   right: 12px;
   bottom: 14px;
-  z-index: 39000;
+  z-index: 41000;
   display: none;
   width: min(390px, calc(100vw - 24px));
   pointer-events: none;

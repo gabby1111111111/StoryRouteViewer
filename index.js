@@ -1,5 +1,5 @@
 const DIST_ENTRY = '/scripts/extensions/third-party/StoryRouteViewer/dist/index.iife.js';
-const AUTO_OPEN_ON_LOAD = true;
+const AUTO_OPEN_ON_LOAD = false;
 const AUTO_OPEN_DELAY_MS = 2500;
 const AUTO_OPEN_RETRY_MS = 3000;
 const AUTO_OPEN_MAX_ATTEMPTS = 10;
